@@ -1,13 +1,14 @@
 :root {
-  --bg: #f6f5f1;
+  color-scheme: light;
+  --bg: #f4f5f7;
   --surface: #ffffff;
-  --ink: #30343B;
-  --muted: #6b6f76;
-  --line: #e3e1da;
+  --ink: #1f2328;
+  --muted: #5b6068;
+  --line: #cfd4db;
   --accent: #55799B;
   --coral: #C9826D;
   --accent-ink: #ffffff;
-  --soft: #efede6;
+  --soft: #e6edf4;
   --danger: #a3271c;
   --ok: #24663a;
   --radius: 10px;
@@ -60,9 +61,9 @@ label { display: block; font-weight: 600; font-size: 14px; margin: 12px 0 6px; }
 
 /* Chat */
 .chat { display: flex; flex-direction: column; gap: 14px; }
-.bubble { max-width: 92%; padding: 14px 16px; border-radius: 14px; white-space: pre-wrap; word-wrap: break-word; }
-.bubble.interviewer { background: var(--surface); border: 1px solid var(--line); align-self: flex-start; }
-.bubble.founder { background: var(--soft); align-self: flex-end; }
+.bubble { max-width: 92%; padding: 14px 16px; border-radius: 14px; white-space: pre-wrap; word-wrap: break-word; color: var(--ink); font-size: 17px; line-height: 1.6; }
+.bubble.interviewer { background: #ffffff; border: 1px solid var(--line); border-left: 4px solid var(--accent); box-shadow: 0 1px 3px rgba(16,24,40,0.08); align-self: flex-start; }
+.bubble.founder { background: #dfe8f1; border: 1px solid #c3d2e1; align-self: flex-end; }
 .bubble.note { background: transparent; border: 1px dashed var(--line); color: var(--muted); }
 .bubble .q-section { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 6px; }
 .composer { position: fixed; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, var(--bg) 75%, transparent); padding: 16px 0 16px; }
