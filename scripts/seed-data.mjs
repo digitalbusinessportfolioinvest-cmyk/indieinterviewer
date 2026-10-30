@@ -20,7 +20,7 @@ export const questionnaires = [
     rightsClause:
       "By clicking Approve, you confirm that this interview reflects your answers and you assign to Founders Courier, publisher of Indie Hustle, all rights in this interview (including authorization to use your name, photo, logo and any images provided together with the interview). Founders Courier may publish, edit, adapt and reproduce it, in whole or in part, in its newsletter, website, social media and any other format, including compilations, reports and books, provided that it respects the integrity of the original message and does not manipulate or misrepresent it. You may republish your interview anywhere, as long as you credit Indie Hustle as the original source.",
     questions: [
-      { layer: "public", prompt: "Who are you and what are you building?", helper: "Brief and direct. Your name, what you do, one line about the business. No life story." },
+      { layer: "public", prompt: "Who are you and what are you building?", helper: "Tell us as much as you like: who you are, what you do, what the business is and how you got here. Don't worry about order or polish, just tell it the way it comes to mind." },
       { layer: "public", prompt: "What was the original problem, and what made you confident it was worth solving?", helper: "We want to hear about validation, not just inspiration. What signal told you this was real?" },
       { layer: "public", prompt: "What almost killed the business in the early days?", helper: "The first real friction. The moment things got uncomfortable. Be specific." },
       { layer: "public", prompt: "How did you get your first 100 customers?", helper: "Channel + action + result. Not theory, what you actually did." },

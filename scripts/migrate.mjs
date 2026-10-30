@@ -34,6 +34,14 @@ try {
         UPDATE questionnaires SET welcome = ${q.welcome}, deep_dive_intro = ${q.deepDiveIntro},
           closing = ${q.closing}, rights_clause = ${q.rightsClause}
         WHERE id = ${existing.id}`;
+      // Wording fixes are applied in place by position; the set of questions is fixed per version.
+      let pos = 1;
+      for (const item of q.questions) {
+        await sql`
+          UPDATE questions SET section = ${item.section ?? null}, prompt = ${item.prompt}, helper = ${item.helper ?? null}
+          WHERE questionnaire_id = ${existing.id} AND position = ${pos}`;
+        pos++;
+      }
       continue;
     }
     await sql.begin(async (tx) => {
