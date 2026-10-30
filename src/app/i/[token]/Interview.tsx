@@ -84,8 +84,9 @@ export default function Interview({ token }: { token: string }) {
   const finished = !["invited", "in_progress"].includes(state.status);
   const pct = Math.round((state.progress.answered / Math.max(1, state.progress.total)) * 100);
 
+  const composerOpen = !finished && !state.atClosing && Boolean(state.openQuestion);
   return (
-    <main className="wrap">
+    <main className={composerOpen ? "wrap has-composer" : "wrap"}>
       <div className="brand">
         <Logo />
         <span>Indie Hustle · Interview with {state.founderName}</span>
