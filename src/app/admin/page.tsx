@@ -1,0 +1,54 @@
+import { requireAdmin } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { STATUS_LABELS } from "@/lib/status";
+import AdminHeader from "./AdminHeader";
+import CreateInterview from "./CreateInterview";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminHome() {
+  const email = await requireAdmin();
+  const sql = db();
+  const [rows, newsletters] = await Promise.all([
+    sql`
+      SELECT i.id, i.founder_name, i.company, i.status, i.deep_skipped_count, i.created_at, i.completed_at, n.name AS newsletter
+      FROM interviews i JOIN questionnaires q ON q.id = i.questionnaire_id JOIN newsletters n ON n.id = q.newsletter_id
+      ORDER BY i.created_at DESC LIMIT 300`,
+    sql`SELECT slug, name FROM newsletters ORDER BY id`,
+  ]);
+  return (
+    <main className="wrap wide">
+      <AdminHeader email={email} />
+      <div className="card">
+        <h2>New interview</h2>
+        <CreateInterview newsletters={newsletters.map((n) => ({ slug: n.slug as string, name: n.name as string }))} />
+      </div>
+      <div className="card">
+        <h2>Interviews</h2>
+        {rows.length === 0 ? (
+          <p className="muted">No interviews yet.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr><th>Founder</th><th>Newsletter</th><th>Status</th><th>Created</th><th>Finished</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td><a href={`/admin/interviews/${r.id}`}><b>{r.founder_name}</b></a>{r.company ? <span className="muted"> · {r.company}</span> : null}</td>
+                  <td>{r.newsletter}</td>
+                  <td>
+                    <span className="pill">{STATUS_LABELS[r.status] ?? r.status}</span>
+                    {r.deep_skipped_count > 0 && r.completed_at ? <span className="pill" style={{ marginLeft: 6 }}>Needs analysis</span> : null}
+                  </td>
+                  <td className="muted">{new Date(r.created_at).toLocaleDateString("en-GB")}</td>
+                  <td className="muted">{r.completed_at ? new Date(r.completed_at).toLocaleDateString("en-GB") : "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </main>
+  );
+}

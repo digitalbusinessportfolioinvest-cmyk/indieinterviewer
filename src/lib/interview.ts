@@ -1,0 +1,284 @@
+import { db } from "./db";
+import { judgeAnswer, rewriteHeadings } from "./llm";
+import { sendCompletedToAdmins } from "./emails";
+
+export type Interview = {
+  id: number;
+  token: string;
+  approval_token: string;
+  questionnaire_id: number;
+  founder_name: string;
+  founder_email: string;
+  company: string | null;
+  status: string;
+  current_position: number;
+  deep_intro_shown: boolean;
+  deep_skipped_count: number;
+  analysis: string | null;
+  draft: Draft | null;
+  draft_status: string;
+  approval_clause: string | null;
+  approval_email: string | null;
+  approved_at: Date | null;
+  publication_date: string | null;
+  completed_at: Date | null;
+  created_at: Date;
+};
+
+export type Question = {
+  id: number;
+  position: number;
+  layer: "public" | "deep" | "closing";
+  section: string | null;
+  prompt: string;
+  helper: string | null;
+};
+
+export type DraftItem = {
+  questionId: number;
+  layer: "public" | "deep" | "closing";
+  section: string | null;
+  original: string;
+  heading: string;
+  answer: string;
+};
+
+export type Draft = { items: DraftItem[]; generatedAt: string; headingsRewritten: boolean };
+
+export type Message = { id: number; role: "interviewer" | "founder"; kind: string; content: string; question_id: number | null };
+
+const SKIP_WORDS = new Set(["skip", "skip.", "skip!", "pass", "pass."]);
+
+export function isSkip(text: string) {
+  return SKIP_WORDS.has(text.trim().toLowerCase());
+}
+
+export async function getInterviewByToken(token: string): Promise<Interview | null> {
+  const [row] = await db()`SELECT * FROM interviews WHERE token = ${token}`;
+  return (row as unknown as Interview) ?? null;
+}
+
+export async function getInterviewById(id: number): Promise<Interview | null> {
+  const [row] = await db()`SELECT * FROM interviews WHERE id = ${id}`;
+  return (row as unknown as Interview) ?? null;
+}
+
+export async function getQuestionnaire(id: number) {
+  const [row] = await db()`SELECT * FROM questionnaires WHERE id = ${id}`;
+  return row as unknown as { id: number; welcome: string; deep_dive_intro: string; closing: string; rights_clause: string; version: string };
+}
+
+export async function getQuestions(questionnaireId: number): Promise<Question[]> {
+  const rows = await db()`SELECT id, position, layer, section, prompt, helper FROM questions WHERE questionnaire_id = ${questionnaireId} ORDER BY position`;
+  return rows as unknown as Question[];
+}
+
+export function questionText(q: Question) {
+  const head = q.section ? `${q.section}\n\n${q.prompt}` : q.prompt;
+  return q.helper ? `${head}\n\n${q.helper}` : head;
+}
+
+async function addMessage(interviewId: number, role: "interviewer" | "founder", kind: string, content: string, questionId: number | null = null) {
+  await db()`INSERT INTO messages (interview_id, question_id, role, kind, content) VALUES (${interviewId}, ${questionId}, ${role}, ${kind}, ${content})`;
+}
+
+export async function getMessages(interviewId: number): Promise<Message[]> {
+  const rows = await db()`SELECT id, role, kind, content, question_id FROM messages WHERE interview_id = ${interviewId} ORDER BY id`;
+  return rows as unknown as Message[];
+}
+
+/** First visit: post the welcome and the first question. Idempotent. */
+export async function ensureStarted(i: Interview) {
+  if (i.status !== "invited") return;
+  const sql = db();
+  const [claimed] = await sql`
+    UPDATE interviews SET status = 'in_progress', started_at = now(), updated_at = now()
+    WHERE id = ${i.id} AND status = 'invited' RETURNING id`;
+  if (!claimed) return;
+  const qn = await getQuestionnaire(i.questionnaire_id);
+  const questions = await getQuestions(i.questionnaire_id);
+  await addMessage(i.id, "interviewer", "welcome", qn.welcome);
+  const first = questions[0];
+  if (first) await addMessage(i.id, "interviewer", "question", questionText(first), first.id);
+}
+
+async function advance(i: Interview, questions: Question[], fromPosition: number) {
+  const sql = db();
+  const next = questions.find((q) => q.position > fromPosition);
+  if (!next) {
+    const qn = await getQuestionnaire(i.questionnaire_id);
+    await addMessage(i.id, "interviewer", "closing", qn.closing);
+    await sql`UPDATE interviews SET current_position = ${fromPosition + 1}, updated_at = now() WHERE id = ${i.id}`;
+    return;
+  }
+  if (next.layer === "deep" && !i.deep_intro_shown) {
+    const qn = await getQuestionnaire(i.questionnaire_id);
+    await addMessage(i.id, "interviewer", "deep_intro", qn.deep_dive_intro);
+    await sql`UPDATE interviews SET deep_intro_shown = true WHERE id = ${i.id}`;
+  }
+  await addMessage(i.id, "interviewer", "question", questionText(next), next.id);
+  await sql`UPDATE interviews SET current_position = ${next.position}, updated_at = now() WHERE id = ${i.id}`;
+}
+
+export type SubmitResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Handles one founder message for the question currently open.
+ * Answers are saved before any AI call, so nothing is lost if the model is slow or down.
+ */
+export async function submitAnswer(token: string, rawText: string): Promise<SubmitResult> {
+  const text = rawText.replace(/\r\n/g, "\n").trim();
+  if (!text) return { ok: false, error: "Please write an answer first." };
+  if (text.length > 20000) return { ok: false, error: "That answer is too long. Please shorten it a little." };
+
+  const sql = db();
+  const i = await getInterviewByToken(token);
+  if (!i) return { ok: false, error: "Interview not found." };
+  if (i.status !== "in_progress") return { ok: false, error: "This interview is not open for answers." };
+
+  const questions = await getQuestions(i.questionnaire_id);
+  const q = questions.find((x) => x.position === i.current_position);
+  if (!q) return { ok: false, error: "There is no open question. You can review your answers and finish." };
+
+  await addMessage(i.id, "founder", "answer", text, q.id);
+
+  if (q.layer === "deep" && isSkip(text)) {
+    const [existing] = await sql`SELECT text FROM answers WHERE interview_id = ${i.id} AND question_id = ${q.id}`;
+    if (!existing || !existing.text) {
+      await sql`
+        INSERT INTO answers (interview_id, question_id, text, skipped) VALUES (${i.id}, ${q.id}, '', true)
+        ON CONFLICT (interview_id, question_id) DO UPDATE SET skipped = true, updated_at = now()`;
+      await sql`UPDATE interviews SET deep_skipped_count = deep_skipped_count + 1 WHERE id = ${i.id}`;
+    }
+    await advance(i, questions, q.position);
+    return { ok: true };
+  }
+
+  const [ans] = await sql`
+    INSERT INTO answers (interview_id, question_id, text) VALUES (${i.id}, ${q.id}, ${text})
+    ON CONFLICT (interview_id, question_id) DO UPDATE
+      SET text = CASE WHEN answers.text = '' THEN EXCLUDED.text ELSE answers.text || E'\n\n' || EXCLUDED.text END,
+          skipped = false, updated_at = now()
+    RETURNING text, followups_used`;
+
+  if (ans.followups_used < 2) {
+    try {
+      const verdict = await judgeAnswer({
+        layer: q.layer,
+        section: q.section,
+        prompt: q.prompt,
+        helper: q.helper,
+        answer: ans.text,
+        attempt: (ans.followups_used + 1) as 1 | 2,
+      });
+      if (verdict.followup) {
+        await sql`UPDATE answers SET followups_used = followups_used + 1 WHERE interview_id = ${i.id} AND question_id = ${q.id}`;
+        await addMessage(i.id, "interviewer", "followup", verdict.message, q.id);
+        return { ok: true };
+      }
+    } catch (err) {
+      // If the model is unavailable the interview simply moves on.
+      console.error("[followup] skipped:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  await advance(i, questions, q.position);
+  return { ok: true };
+}
+
+export async function getAnswers(interviewId: number) {
+  const rows = await db()`
+    SELECT a.question_id, a.text, a.skipped, q.position, q.layer, q.section, q.prompt, q.helper
+    FROM answers a JOIN questions q ON q.id = a.question_id
+    WHERE a.interview_id = ${interviewId} ORDER BY q.position`;
+  return rows as unknown as { question_id: number; text: string; skipped: boolean; position: number; layer: string; section: string | null; prompt: string; helper: string | null }[];
+}
+
+/** Founder edits an answer from the review screen before finishing. */
+export async function editAnswer(token: string, questionId: number, rawText: string): Promise<SubmitResult> {
+  const sql = db();
+  const i = await getInterviewByToken(token);
+  if (!i || i.status !== "in_progress") return { ok: false, error: "This interview can no longer be edited." };
+  const questions = await getQuestions(i.questionnaire_id);
+  const q = questions.find((x) => x.id === questionId);
+  if (!q || q.position >= i.current_position) return { ok: false, error: "You can only edit questions you have already answered." };
+  const text = rawText.replace(/\r\n/g, "\n").trim();
+  if (text.length > 20000) return { ok: false, error: "That answer is too long." };
+  if (!text && q.layer !== "deep") return { ok: false, error: "This answer can't be empty." };
+  const skipped = q.layer === "deep" && !text;
+  const [prev] = await sql`SELECT skipped FROM answers WHERE interview_id = ${i.id} AND question_id = ${q.id}`;
+  await sql`
+    INSERT INTO answers (interview_id, question_id, text, skipped) VALUES (${i.id}, ${q.id}, ${text}, ${skipped})
+    ON CONFLICT (interview_id, question_id) DO UPDATE SET text = EXCLUDED.text, skipped = EXCLUDED.skipped, updated_at = now()`;
+  const wasSkipped = prev ? Boolean(prev.skipped) : false;
+  if (wasSkipped !== skipped) {
+    await sql`UPDATE interviews SET deep_skipped_count = GREATEST(0, deep_skipped_count + ${skipped ? 1 : -1}) WHERE id = ${i.id}`;
+  }
+  return { ok: true };
+}
+
+export async function finishInterview(token: string): Promise<SubmitResult> {
+  const sql = db();
+  const i = await getInterviewByToken(token);
+  if (!i) return { ok: false, error: "Interview not found." };
+  const questions = await getQuestions(i.questionnaire_id);
+  const last = questions[questions.length - 1];
+  if (i.status !== "in_progress" || !last || i.current_position <= last.position) {
+    return { ok: false, error: "Please answer all the questions before finishing." };
+  }
+  const [row] = await sql`
+    UPDATE interviews SET status = 'completed', completed_at = now(), draft_status = 'generating', updated_at = now()
+    WHERE id = ${i.id} AND status = 'in_progress' RETURNING *`;
+  if (!row) return { ok: true };
+  void generateDraft(i.id);
+  void sendCompletedToAdmins(row as unknown as Interview).catch(() => {});
+  return { ok: true };
+}
+
+/** Builds the review draft. Answers are copied verbatim; only headings are rewritten by the model. */
+export async function generateDraft(interviewId: number) {
+  const sql = db();
+  const i = await getInterviewById(interviewId);
+  if (!i) return;
+  const answers = await getAnswers(interviewId);
+  const answered = answers.filter((a) => !a.skipped && a.text.trim());
+  const items: DraftItem[] = answered.map((a) => ({
+    questionId: a.question_id,
+    layer: a.layer as DraftItem["layer"],
+    section: a.section,
+    original: a.prompt,
+    heading: a.prompt,
+    answer: a.text,
+  }));
+
+  let rewritten = false;
+  try {
+    const recent = await sql`
+      SELECT draft FROM interviews WHERE id <> ${interviewId} AND draft IS NOT NULL
+      ORDER BY completed_at DESC NULLS LAST LIMIT 8`;
+    const recentHeadings: string[] = [];
+    for (const r of recent) {
+      const d = r.draft as Draft;
+      for (const it of d?.items ?? []) if (it.heading !== it.original) recentHeadings.push(it.heading);
+    }
+    const map = await rewriteHeadings({
+      founder: i.founder_name,
+      company: i.company,
+      items: items.map((it) => ({ id: it.questionId, prompt: it.original, answer: it.answer })),
+      recentHeadings: recentHeadings.slice(0, 150),
+    });
+    for (const it of items) {
+      const h = map.get(it.questionId);
+      if (h) it.heading = h;
+    }
+    rewritten = map.size > 0;
+  } catch (err) {
+    console.error("[draft] heading rewrite failed:", err instanceof Error ? err.message : err);
+  }
+
+  const draft: Draft = { items, generatedAt: new Date().toISOString(), headingsRewritten: rewritten };
+  await sql`
+    UPDATE interviews SET draft = ${sql.json(draft as never)}, draft_status = ${rewritten ? "ready" : "failed"},
+      status = CASE WHEN status = 'completed' THEN 'in_review' ELSE status END, updated_at = now()
+    WHERE id = ${interviewId}`;
+}
