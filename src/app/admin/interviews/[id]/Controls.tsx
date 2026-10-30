@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { regenerateDraft, resendInvitation, setPublicationDate, type ActionResult } from "../../actions";
+import { deleteInterview, regenerateDraft, resendInvitation, setPublicationDate, type ActionResult } from "../../actions";
 
 export function ActionButton({ kind, id, label }: { kind: "invite" | "regenerate"; id: number; label: string }) {
   const [pending, start] = useTransition();
@@ -34,6 +34,26 @@ export function PublicationDateForm({ id, current }: { id: number; current: stri
         </button>
       </div>
       {result && <p className={result.ok ? "success" : "error"}>{result.message}</p>}
+    </div>
+  );
+}
+
+export function DeleteInterview({ id, name }: { id: number; name: string }) {
+  const [pending, start] = useTransition();
+  const [result, setResult] = useState<ActionResult | null>(null);
+  return (
+    <div>
+      <button
+        className="danger"
+        disabled={pending}
+        onClick={() => {
+          if (!confirm(`Delete the interview with ${name}? Answers, messages and uploaded files will be removed permanently.`)) return;
+          start(async () => { const r = await deleteInterview(id); if (r) setResult(r); });
+        }}
+      >
+        {pending ? "Deleting…" : "Delete interview"}
+      </button>
+      {result && !result.ok && <p className="error">{result.message}</p>}
     </div>
   );
 }

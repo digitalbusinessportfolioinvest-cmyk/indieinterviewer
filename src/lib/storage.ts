@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectsCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 let client: S3Client | null = null;
@@ -37,4 +37,11 @@ export async function signedGetUrl(key: string, filename: string) {
     }),
     { expiresIn: 3600 },
   );
+}
+
+export async function deleteObjects(keys: string[]) {
+  for (let i = 0; i < keys.length; i += 1000) {
+    const chunk = keys.slice(i, i + 1000);
+    await s3().send(new DeleteObjectsCommand({ Bucket: process.env.S3_BUCKET, Delete: { Objects: chunk.map((Key) => ({ Key })), Quiet: true } }));
+  }
 }

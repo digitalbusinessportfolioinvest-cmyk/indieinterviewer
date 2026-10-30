@@ -52,6 +52,7 @@ button, .btn {
   border-radius: 8px; padding: 10px 18px; font: inherit; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
 }
 button.secondary, .btn.secondary { background: transparent; color: var(--ink); border-color: var(--line); }
+button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 input[type="text"], input[type="email"], input[type="date"], textarea, select {
   width: 100%; font: inherit; color: inherit; background: var(--surface);

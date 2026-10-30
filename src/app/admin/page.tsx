@@ -6,8 +6,9 @@ import CreateInterview from "./CreateInterview";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminHome() {
+export default async function AdminHome({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
   const email = await requireAdmin();
+  const { notice } = await searchParams;
   const sql = db();
   const [rows, newsletters] = await Promise.all([
     sql`
@@ -19,6 +20,7 @@ export default async function AdminHome() {
   return (
     <main className="wrap wide">
       <AdminHeader email={email} />
+      {notice === "deleted" && <p className="success" style={{ marginBottom: 16 }}>Interview deleted.</p>}
       <div className="card">
         <h2>New interview</h2>
         <CreateInterview newsletters={newsletters.map((n) => ({ slug: n.slug as string, name: n.name as string }))} />

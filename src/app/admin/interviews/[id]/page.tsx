@@ -8,7 +8,7 @@ import { STATUS_LABELS } from "@/lib/status";
 import { draftToMarkdown } from "@/components/ArticleView";
 import AdminHeader from "../../AdminHeader";
 import ReviewEditor from "./ReviewEditor";
-import { ActionButton, PublicationDateForm } from "./Controls";
+import { ActionButton, DeleteInterview, PublicationDateForm } from "./Controls";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +133,12 @@ export default async function InterviewDetail({ params, searchParams }: { params
           <PublicationDateForm id={i.id} current={pubDate} />
         </div>
       )}
+
+      <div className="card">
+        <h2>Delete</h2>
+        <p className="small muted">Removes the interview, its answers, messages and uploaded files. This can't be undone.</p>
+        <DeleteInterview id={i.id} name={i.founder_name} />
+      </div>
     </main>
   );
 }

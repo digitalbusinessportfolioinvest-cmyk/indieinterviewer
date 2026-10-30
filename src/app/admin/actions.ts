@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { randomToken } from "@/lib/tokens";
 import { generateDraft, getInterviewById, type Draft } from "@/lib/interview";
+import { deleteObjects } from "@/lib/storage";
 import { sendApprovalRequest, sendInvitation, sendPublicationDate } from "@/lib/emails";
 
 export type ActionResult = { ok: boolean; message: string };
@@ -106,4 +107,18 @@ export async function setPublicationDate(id: number, date: string): Promise<Acti
   await db()`UPDATE interviews SET publication_date = ${date}, status = 'scheduled', updated_at = now() WHERE id = ${id}`;
   revalidatePath(`/admin/interviews/${id}`);
   return { ok: true, message: `Publication date sent: ${label}.` };
+}
+
+export async function deleteInterview(id: number): Promise<ActionResult> {
+  await requireAdmin();
+  const sql = db();
+  const files = await sql`SELECT object_key FROM uploads WHERE interview_id = ${id}`;
+  if (files.length) {
+    try { await deleteObjects(files.map((f) => f.object_key as string)); }
+    catch { return { ok: false, message: "The uploaded files could not be deleted. Nothing was removed; try again." }; }
+  }
+  const [row] = await sql`DELETE FROM interviews WHERE id = ${id} RETURNING id`;
+  if (!row) return { ok: false, message: "Not found." };
+  revalidatePath("/admin");
+  redirect("/admin?notice=deleted");
 }
