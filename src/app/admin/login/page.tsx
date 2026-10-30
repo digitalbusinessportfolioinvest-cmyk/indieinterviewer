@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentAdmin } from "@/lib/auth";
 import LoginForm from "./LoginForm";
+import Logo from "@/components/Logo";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { error } = await searchParams;
   return (
     <main className="wrap" style={{ maxWidth: 440 }}>
-      <div className="brand"><b>IndieInterviewer</b></div>
+      <div className="brand"><Logo /></div>
       <div className="card">
         <h1>Sign in</h1>
         {error === "link" && <p className="error">That sign-in link has expired or was already used. Request a new one below.</p>}

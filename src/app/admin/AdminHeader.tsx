@@ -1,7 +1,8 @@
+import Logo from "@/components/Logo";
 export default function AdminHeader({ email }: { email: string }) {
   return (
     <div className="brand">
-      <a href="/admin" style={{ textDecoration: "none" }}><b>IndieInterviewer</b></a>
+      <Logo href="/admin" />
       <form action="/api/auth/logout" method="post" className="row small">
         <span className="muted">{email}</span>
         <a href="/admin/passkey" className="muted">Passkeys</a>

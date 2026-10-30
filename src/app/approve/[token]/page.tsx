@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getQuestionnaire, type Interview } from "@/lib/interview";
 import ArticleView from "@/components/ArticleView";
 import ApproveForm from "./ApproveForm";
+import Logo from "@/components/Logo";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function ApprovePage({ params }: { params: Promise<{ token:
 
   return (
     <main className="wrap">
-      <div className="brand"><b>Indie Hustle</b><span>Interview with {i.founder_name}</span></div>
+      <div className="brand"><Logo /><span>Indie Hustle · Interview with {i.founder_name}</span></div>
       <div className="card">
         <p className="muted small">Please read your interview below. This is the version we will publish.</p>
         <ArticleView draft={i.draft} analysis={i.analysis} />

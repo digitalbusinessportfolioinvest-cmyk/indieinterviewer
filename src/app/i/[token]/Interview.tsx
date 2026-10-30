@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Logo from "@/components/Logo";
 
 type State = {
   founderName: string;
@@ -74,7 +75,7 @@ export default function Interview({ token }: { token: string }) {
   if (!state) {
     return (
       <main className="wrap">
-        <div className="brand"><b>Indie Hustle</b></div>
+        <div className="brand"><Logo /></div>
         {error ? <p className="error">{error}</p> : <p className="muted">Loading your interview…</p>}
       </main>
     );
@@ -86,8 +87,8 @@ export default function Interview({ token }: { token: string }) {
   return (
     <main className="wrap">
       <div className="brand">
-        <b>Indie Hustle</b>
-        <span>Interview with {state.founderName}</span>
+        <Logo />
+        <span>Indie Hustle · Interview with {state.founderName}</span>
       </div>
       {!finished && <div className="progress" aria-label={`${pct}% complete`}><div style={{ width: `${pct}%` }} /></div>}
 
