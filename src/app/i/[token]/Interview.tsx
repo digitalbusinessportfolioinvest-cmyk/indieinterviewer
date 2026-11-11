@@ -236,7 +236,7 @@ function Progress({ p, atClosing }: { p: State["progress"]; atClosing: boolean }
   const { main, deep } = p;
   const all = Math.max(1, main.total + deep.total);
   const fill = (s: { done: number; total: number }) => `${Math.round((s.done / Math.max(1, s.total)) * 100)}%`;
-  const fmt = (m: number) => (m <= 0 ? "done" : m < 60 ? `about ${m} min` : `about ${Math.floor(m / 60)} h ${m % 60} min`);
+  const fmt = (m: number) => (m <= 0 ? "done" : m <= 5 ? `about ${m} min` : `about ${Math.ceil(m / 5) * 5} min`);
   const left = main.minutesLeft + deep.minutesLeft;
   let note: string;
   if (atClosing) note = "All questions answered. Add your photo, review and click Finish.";

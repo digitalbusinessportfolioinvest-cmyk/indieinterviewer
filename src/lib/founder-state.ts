@@ -19,7 +19,7 @@ export type FounderState = {
 };
 
 // Rough minutes per question, used for the time estimate shown to the founder.
-const MINUTES: Record<string, number> = { public: 3, deep: 2, closing: 2 };
+const MINUTES: Record<string, number> = { public: 1.5, deep: 1, closing: 1 };
 
 export async function founderState(i: Interview): Promise<FounderState> {
   const [questions, messages, answers, uploads, brand] = await Promise.all([
@@ -36,7 +36,7 @@ export async function founderState(i: Interview): Promise<FounderState> {
   const seg = (layers: string[]) => {
     const qs = questions.filter((q) => layers.includes(q.layer));
     const pending = qs.filter((q) => q.position >= i.current_position);
-    return { done: qs.length - pending.length, total: qs.length, minutesLeft: pending.reduce((m, q) => m + (MINUTES[q.layer] ?? 2), 0) };
+    return { done: qs.length - pending.length, total: qs.length, minutesLeft: Math.ceil(pending.reduce((m, q) => m + (MINUTES[q.layer] ?? 1), 0)) };
   };
   return {
     newsletter: { name: brand.name, logo: brand.logo },
