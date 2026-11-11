@@ -70,7 +70,7 @@ Decide whether the answer is too short or incomplete to be publishable for this 
 Rules for Deep Dive questions: the founder shares only what they are comfortable with, and numbers are always optional. Never push for figures they chose not to give. Only follow up on a Deep Dive answer if it is nearly empty and gives no usable information at all.
 
 If a follow-up is needed, write it:
-- In the same language the founder is writing in, addressed to the founder directly, one or two sentences.
+- In English, addressed to the founder directly, one or two sentences.
 - Exceedingly polite and warm, never demanding. Ask for clarification or a little more detail on something specific in their answer, so it is clearly about what they wrote.
 - Do not repeat the question verbatim, do not use bullet points, do not thank them excessively.
 - On the second and final follow-up, be even more courteous: acknowledge their time and make clear that it is entirely up to them, and that a short addition is welcome.
