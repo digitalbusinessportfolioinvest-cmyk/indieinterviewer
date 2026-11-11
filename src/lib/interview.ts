@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { judgeAnswer, rewriteHeadings } from "./llm";
+import { judgeAnswer, rewriteHeadings, translateAnswers } from "./llm";
 import { sendCompletedToAdmins } from "./emails";
 import { brandForQuestionnaire } from "./brand";
 import { takeHomepageScreenshot } from "./screenshot";
@@ -47,6 +47,10 @@ export type DraftItem = {
   original: string;
   heading: string;
   answer: string;
+  /** The founder's answer as written, when it was translated into English or typo-corrected for the draft. */
+  sourceAnswer?: string;
+  sourceLanguage?: string;
+  sourceMode?: "translated" | "corrected";
 };
 
 export type Draft = { items: DraftItem[]; generatedAt: string; headingsRewritten: boolean };
@@ -252,7 +256,7 @@ export async function finishInterview(token: string): Promise<SubmitResult> {
   return { ok: true };
 }
 
-/** Builds the review draft. Answers are copied verbatim; only headings are rewritten by the model. */
+/** Builds the review draft. Answers keep the founder's words (translated into English or typo-corrected when needed); headings are rewritten by the model. */
 export async function generateDraft(interviewId: number) {
   const sql = db();
   const i = await getInterviewById(interviewId);
@@ -267,6 +271,17 @@ export async function generateDraft(interviewId: number) {
     heading: a.prompt,
     answer: a.text,
   }));
+
+  // Answers in another language are translated into English and typos are fixed; the original is kept alongside.
+  try {
+    const tr = await translateAnswers({ interviewId, items: items.map((it) => ({ id: it.questionId, answer: it.answer })) });
+    for (const it of items) {
+      const t = tr.get(it.questionId);
+      if (t && t.english !== it.answer) { it.sourceAnswer = it.answer; it.sourceLanguage = t.language; it.sourceMode = t.mode; it.answer = t.english; }
+    }
+  } catch (err) {
+    console.error("[draft] translation failed:", err instanceof Error ? err.message : err);
+  }
 
   let rewritten = false;
   try {

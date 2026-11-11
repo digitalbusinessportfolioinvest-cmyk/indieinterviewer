@@ -26,7 +26,7 @@ export const questionnaires = [
     newsletter: "indie-hustle",
     version: "v2",
     welcome:
-      "Welcome, and thanks for taking part in Indie Hustle. You'll receive the questions one at a time, and at the end you'll be able to review and edit all your answers. You can pause the interview at any time: everything you write is saved as you go, and you can pick up where you left off. If the system detects that an answer is short or incomplete, it may ask you to clarify or expand on it.",
+      "Welcome, and thanks for taking part in Indie Hustle. The questions are in English, but if you're more comfortable writing in another language, that's no problem: the final version will be in English. Don't worry about typos either: everything will be corrected in the final version we'll send you for your review and final approval. You'll receive the questions one at a time, and at the end you'll be able to review and edit all your answers. You can pause the interview at any time: everything you write is saved as you go, and you can pick up where you left off. If the system detects that an answer is short or incomplete, it may ask you to clarify or expand on it.",
     deepDiveIntro:
       "That's the end of the public interview. The next questions are for the newsletter's paid subscribers, where founders usually share (voluntarily) more complete information. This part is optional: you can skip any or all of the questions by replying \"skip\". That said, I really appreciate it when founders do answer, because it helps me give my most loyal readers more detailed information. When a founder doesn't answer these questions, I write an analysis instead, which is also sent to them for review before publication.",
     closing:
@@ -71,7 +71,7 @@ export const questionnaires = [
     newsletter: "founders-struggles",
     version: "v1",
     welcome:
-      "Welcome, and thanks for taking part in Founders Struggles. You'll receive the questions one at a time, and at the end you'll be able to review and edit all your answers. You can pause the interview at any time: everything you write is saved as you go, and you can pick up where you left off. If the system detects that an answer is short or incomplete, it may ask you to clarify or expand on it.",
+      "Welcome, and thanks for taking part in Founders Struggles. The questions are in English, but if you're more comfortable writing in another language, that's no problem: the final version will be in English. Don't worry about typos either: everything will be corrected in the final version we'll send you for your review and final approval. You'll receive the questions one at a time, and at the end you'll be able to review and edit all your answers. You can pause the interview at any time: everything you write is saved as you go, and you can pick up where you left off. If the system detects that an answer is short or incomplete, it may ask you to clarify or expand on it.",
     deepDiveIntro:
       "That's the end of the public interview. The next questions are for the newsletter's paid subscribers, where founders usually share (voluntarily) more complete information. This part is optional: you can skip any or all of the questions by replying \"skip\". That said, I really appreciate it when founders do answer, because it helps me give my most loyal readers more detailed information. When a founder doesn't answer these questions, I write an analysis instead, which is also sent to them for review before publication.",
     closing:

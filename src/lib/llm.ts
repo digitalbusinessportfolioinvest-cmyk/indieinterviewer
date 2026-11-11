@@ -70,7 +70,7 @@ Decide whether the answer is too short or incomplete to be publishable for this 
 Rules for Deep Dive questions: the founder shares only what they are comfortable with, and numbers are always optional. Never push for figures they chose not to give. Only follow up on a Deep Dive answer if it is nearly empty and gives no usable information at all.
 
 If a follow-up is needed, write it:
-- In English, addressed to the founder directly, one or two sentences.
+- In the same language the founder is writing in, addressed to the founder directly, one or two sentences.
 - Exceedingly polite and warm, never demanding. Ask for clarification or a little more detail on something specific in their answer, so it is clearly about what they wrote.
 - Do not repeat the question verbatim, do not use bullet points, do not thank them excessively.
 - On the second and final follow-up, be even more courteous: acknowledge their time and make clear that it is entirely up to them, and that a short addition is welcome.
@@ -141,6 +141,34 @@ export async function rewriteHeadings(input: {
   const map = new Map<number, string>();
   for (const h of out.headings ?? []) {
     if (typeof h.id === "number" && typeof h.heading === "string" && h.heading.trim()) map.set(h.id, h.heading.trim());
+  }
+  return map;
+}
+
+const translateSystem = `You prepare founder interview answers for publication in English.
+
+You receive a list of answers. For each one:
+- If it is NOT written in English, return a faithful English translation (mode "translated").
+- If it is in English but has typos, spelling mistakes or obvious slips (missing letters, wrong keys, doubled words, broken punctuation), return it with only those mistakes fixed (mode "corrected").
+- If it is in English and clean, omit it.
+
+In every case keep exactly what the founder said: do not add, remove, summarise, rephrase, soften or embellish anything, and keep their tone, first person and style. Corrections fix mistakes only; they never "improve" wording. Translations read as natural English the founder could have written. Keep names, product names, URLs, handles, numbers and currencies as written. If an answer mixes languages, translate the non-English parts and keep the English parts.
+
+Reply with JSON only: {"translations": [{"id": <item id>, "mode": "translated" | "corrected", "language": "<source language, in English>", "english": "..."}]}`;
+
+/** English versions of the answers that needed translation or typo fixes (by item id). */
+export async function translateAnswers(input: { interviewId: number; items: { id: number; answer: string }[] }) {
+  const map = new Map<number, { mode: "translated" | "corrected"; language: string; english: string }>();
+  if (!input.items.length) return map;
+  const raw = await chat(
+    [{ role: "system", content: translateSystem }, { role: "user", content: JSON.stringify(input.items.map((i) => ({ id: i.id, answer: i.answer })), null, 1) }],
+    { effort: "low", maxTokens: 16000, timeoutMs: 240_000, interviewId: null, kind: "translate" },
+  );
+  const out = parseJson<{ translations?: { id: number; mode?: string; language?: string; english?: string }[] }>(raw);
+  for (const t of out.translations ?? []) {
+    if (typeof t.id === "number" && typeof t.english === "string" && t.english.trim()) {
+      map.set(t.id, { mode: t.mode === "corrected" ? "corrected" : "translated", language: String(t.language ?? "").trim() || "unknown", english: t.english.trim() });
+    }
   }
   return map;
 }

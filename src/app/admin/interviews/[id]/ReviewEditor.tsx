@@ -14,7 +14,7 @@ export default function ReviewEditor(props: {
   status: string;
   canRegenerate: boolean;
 }) {
-  const [items, setItems] = useState(props.items.map((i) => ({ questionId: i.questionId, layer: i.layer, section: i.section, original: i.original, heading: i.heading, answer: i.answer })));
+  const [items, setItems] = useState(props.items.map((i) => ({ questionId: i.questionId, layer: i.layer, section: i.section, original: i.original, heading: i.heading, answer: i.answer, sourceAnswer: i.sourceAnswer, sourceLanguage: i.sourceLanguage, sourceMode: i.sourceMode })));
   const [analysis, setAnalysis] = useState(props.analysis);
   const [dirty, setDirty] = useState(false);
   const [pending, start] = useTransition();
@@ -66,7 +66,7 @@ export default function ReviewEditor(props: {
           </button>
         )}
       </div>
-      <p className="muted small" style={{ marginTop: 8 }}>Headings were rewritten for this founder; the answers are exactly as written. The original question is shown under each heading.</p>
+      <p className="muted small" style={{ marginTop: 8 }}>Headings were rewritten for this founder; the answers keep the founder's words (translated into English or with typos fixed where marked). The original question is shown under each heading.</p>
 
       {items.map((it) => {
         const header = it.layer !== lastLayer ? (it.layer === "deep" ? "Deep Dive" : it.layer === "closing" ? "Closing" : "Interview") : null;
@@ -84,6 +84,12 @@ export default function ReviewEditor(props: {
               <textarea value={it.answer} onChange={(e) => update(it.questionId, "answer", e.target.value)} rows={Math.min(18, Math.max(4, Math.ceil(it.answer.length / 90)))} />
             ) : (
               <p className="pre">{it.answer}</p>
+            )}
+            {it.sourceAnswer && (
+              <details style={{ marginTop: 6 }}>
+                <summary className="small muted">{it.sourceMode === "corrected" ? "Typos corrected" : `Translated from ${it.sourceLanguage || "another language"}`}: show what the founder wrote</summary>
+                <p className="pre small" style={{ background: "var(--soft)", padding: 10, borderRadius: 8 }}>{it.sourceAnswer}</p>
+              </details>
             )}
           </div>
         );
