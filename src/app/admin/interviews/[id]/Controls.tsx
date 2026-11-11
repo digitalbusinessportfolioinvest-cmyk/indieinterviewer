@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteInterview, regenerateDraft, resendInvitation, setPublicationDate, setPublished, type ActionResult } from "../../actions";
+import { deleteInterview, retakeScreenshot, regenerateDraft, resendInvitation, setPublicationDate, setPublished, type ActionResult } from "../../actions";
 
 export function ActionButton({ kind, id, label }: { kind: "invite" | "regenerate"; id: number; label: string }) {
   const [pending, start] = useTransition();
@@ -68,5 +68,23 @@ export function PublishedToggle({ id, published }: { id: number; published: bool
       </button>
       {result && <span className={result.ok ? "success" : "error"} style={{ marginTop: 0 }}>{result.message}</span>}
     </span>
+  );
+}
+
+export function ScreenshotForm({ id, current }: { id: number; current: string }) {
+  const [url, setUrl] = useState(current);
+  const [pending, start] = useTransition();
+  const [result, setResult] = useState<ActionResult | null>(null);
+  return (
+    <div>
+      <label htmlFor="homeurl">Website</label>
+      <div className="row">
+        <input id="homeurl" type="text" value={url} placeholder="https://example.com" onChange={(e) => setUrl(e.target.value)} style={{ maxWidth: 420 }} />
+        <button className="secondary" disabled={pending} onClick={() => start(async () => setResult(await retakeScreenshot(id, url)))}>
+          {pending ? "Taking…" : current ? "Retake screenshot" : "Take screenshot"}
+        </button>
+      </div>
+      {result && <p className={result.ok ? "success" : "error"}>{result.message}</p>}
+    </div>
   );
 }

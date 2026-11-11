@@ -7,6 +7,7 @@ import {
   createInterviewOp, deleteInterviewOp, regenerateDraftOp, resendInvitationOp, saveReviewOp,
   sendForApprovalOp, setPublicationDateOp, setPublishedOp,
 } from "@/lib/admin-ops";
+import { takeHomepageScreenshot } from "@/lib/screenshot";
 
 export type ActionResult = { ok: boolean; message: string };
 
@@ -73,4 +74,11 @@ export async function deleteInterview(id: number): Promise<ActionResult> {
   if (!r.ok) return r;
   revalidatePath("/admin");
   redirect("/admin?notice=deleted");
+}
+
+export async function retakeScreenshot(id: number, url: string): Promise<ActionResult> {
+  await requireAdmin();
+  const r = await takeHomepageScreenshot(id, url || null);
+  revalidatePath(`/admin/interviews/${id}`);
+  return r;
 }

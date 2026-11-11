@@ -8,7 +8,7 @@ import { STATUS_LABELS } from "@/lib/status";
 import { draftToMarkdown } from "@/components/ArticleView";
 import AdminHeader from "../../AdminHeader";
 import ReviewEditor from "./ReviewEditor";
-import { ActionButton, DeleteInterview, PublicationDateForm, PublishedToggle } from "./Controls";
+import { ActionButton, DeleteInterview, PublicationDateForm, PublishedToggle, ScreenshotForm } from "./Controls";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +24,13 @@ export default async function InterviewDetail({ params, searchParams }: { params
   const [questions, answers, uploadRows] = await Promise.all([
     getQuestions(i.questionnaire_id),
     getAnswers(i.id),
-    db()`SELECT id, object_key, filename, content_type, size_bytes FROM uploads WHERE interview_id = ${i.id} ORDER BY id`,
+    db()`SELECT id, object_key, filename, content_type, size_bytes, kind FROM uploads WHERE interview_id = ${i.id} ORDER BY id`,
   ]);
   const uploads = await Promise.all(
     uploadRows.map(async (u) => {
       let url: string | null = null;
       try { url = await signedGetUrl(u.object_key, u.filename); } catch { url = null; }
-      return { id: u.id as number, filename: u.filename as string, size: u.size_bytes as number, url };
+      return { id: u.id as number, filename: u.filename as string, size: u.size_bytes as number, kind: u.kind as string, url };
     }),
   );
 
@@ -74,11 +74,31 @@ export default async function InterviewDetail({ params, searchParams }: { params
         </div>
       )}
 
-      {uploads.length > 0 && (
+      {i.completed_at && (() => {
+        const shotFile = uploads.find((u) => u.kind === "screenshot");
+        return (
+          <div className="card">
+            <h2>Homepage screenshot</h2>
+            {shotFile?.url ? (
+              <a href={shotFile.url} target="_blank" rel="noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={shotFile.url} alt="Homepage screenshot" style={{ width: "100%", maxWidth: 720, border: "1px solid var(--line)", borderRadius: 8 }} />
+              </a>
+            ) : i.screenshot_error ? (
+              <p className="error">{i.screenshot_error}</p>
+            ) : (
+              <p className="muted small">Being taken. Reload in a minute.</p>
+            )}
+            <div style={{ marginTop: 12 }}><ScreenshotForm id={i.id} current={i.homepage_url ?? ""} /></div>
+          </div>
+        );
+      })()}
+
+      {uploads.some((u) => u.kind !== "screenshot") && (
         <div className="card">
-          <h2>Files</h2>
+          <h2>Files from the founder</h2>
           <ul>
-            {uploads.map((u) => (
+            {uploads.filter((u) => u.kind !== "screenshot").map((u) => (
               <li key={u.id}>{u.url ? <a href={u.url} target="_blank" rel="noreferrer">{u.filename}</a> : u.filename} <span className="muted small">({Math.ceil(u.size / 1024)} KB)</span></li>
             ))}
           </ul>

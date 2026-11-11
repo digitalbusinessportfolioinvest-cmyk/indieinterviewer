@@ -155,3 +155,8 @@ ALTER TABLE interviews ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
 ALTER TABLE interviews DROP CONSTRAINT IF EXISTS interviews_status_check;
 ALTER TABLE interviews ADD CONSTRAINT interviews_status_check
   CHECK (status IN ('invited','in_progress','completed','in_review','awaiting_approval','approved','scheduled','published'));
+
+-- Homepage screenshot taken automatically when the interview is finished.
+ALTER TABLE uploads ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'founder';
+ALTER TABLE interviews ADD COLUMN IF NOT EXISTS homepage_url TEXT;
+ALTER TABLE interviews ADD COLUMN IF NOT EXISTS screenshot_error TEXT;

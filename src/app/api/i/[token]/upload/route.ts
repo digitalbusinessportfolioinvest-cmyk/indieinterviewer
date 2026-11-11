@@ -23,7 +23,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   if (!ALLOWED_TYPES.includes(file.type)) {
     return NextResponse.json({ error: "Please upload images only (PNG, JPG, WebP or GIF)." }, { status: 400 });
   }
-  const [{ count }] = await db()`SELECT count(*)::int AS count FROM uploads WHERE interview_id = ${i.id}`;
+  const [{ count }] = await db()`SELECT count(*)::int AS count FROM uploads WHERE interview_id = ${i.id} AND kind = 'founder'`;
   if (count >= MAX_FILES) return NextResponse.json({ error: `You can upload up to ${MAX_FILES} images.` }, { status: 400 });
 
   const safeName = file.name.replace(/[^\w.\- ]+/g, "_").slice(-120) || "file";

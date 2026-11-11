@@ -3,6 +3,7 @@ import { db } from "./db";
 import { getAnswers, getInterviewById, getQuestions } from "./interview";
 import { signedGetUrl } from "./storage";
 import { STATUS_LABELS } from "./status";
+import { takeHomepageScreenshot } from "./screenshot";
 import { draftToMarkdown } from "@/components/ArticleView";
 import {
   createInterviewOp, deleteInterviewOp, interviewLinks, regenerateDraftOp, resendInvitationOp,
@@ -88,7 +89,7 @@ export const tools: Tool[] = [
       const [questions, answers, uploads, [nl]] = await Promise.all([
         getQuestions(i.questionnaire_id),
         getAnswers(i.id),
-        db()`SELECT object_key, filename, content_type, size_bytes FROM uploads WHERE interview_id = ${i.id} ORDER BY id`,
+        db()`SELECT object_key, filename, content_type, size_bytes, kind FROM uploads WHERE interview_id = ${i.id} ORDER BY id`,
         db()`SELECT n.slug FROM newsletters n JOIN questionnaires q ON q.newsletter_id = n.id WHERE q.id = ${i.questionnaire_id}`,
       ]);
       const byQ = new Map(answers.map((x) => [x.question_id, x]));
@@ -97,6 +98,7 @@ export const tools: Tool[] = [
         status: i.status, deep_skipped_count: i.deep_skipped_count, draft_status: i.draft_status,
         completed_at: i.completed_at, approved_at: i.approved_at,
         publication_date: dateStr(i.publication_date), published_at: i.published_at,
+        homepage_url: i.homepage_url, screenshot_error: i.screenshot_error,
         ...interviewLinks(i),
         answers: questions.map((q) => {
           const ans = byQ.get(q.id);
@@ -106,7 +108,7 @@ export const tools: Tool[] = [
         analysis: i.analysis,
         draft_markdown: i.draft ? draftToMarkdown(i.draft, i.analysis) : null,
         uploads: await Promise.all(uploads.map(async (u) => ({
-          filename: u.filename, content_type: u.content_type, size_bytes: u.size_bytes,
+          filename: u.filename, kind: u.kind, content_type: u.content_type, size_bytes: u.size_bytes,
           url: await signedGetUrl(u.object_key, u.filename).catch(() => null),
         }))),
       };
@@ -176,6 +178,16 @@ export const tools: Tool[] = [
     description: "Regenerate the draft (headings rewritten by the model) for a finished interview that hasn't been sent for approval. Overwrites manual edits.",
     inputSchema: { type: "object", properties: { id }, required: ["id"] },
     run: async (a) => regenerateDraftOp(num(a.id)),
+  },
+  {
+    name: "take_homepage_screenshot",
+    description: "Take (or retake) the screenshot of the founder's homepage and store it with the interview's images (kind 'screenshot'). Without url, the website is taken from the founder's answers. Done automatically when the founder finishes.",
+    inputSchema: { type: "object", properties: { id, url: { type: "string", description: "Optional website URL." } }, required: ["id"] },
+    run: async (a) => {
+      const i = await getInterviewById(num(a.id));
+      if (!i) throw new Error("Interview not found.");
+      return takeHomepageScreenshot(i.id, a.url ? String(a.url) : null);
+    },
   },
   {
     name: "send_for_approval",

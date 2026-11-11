@@ -2,6 +2,7 @@ import { db } from "./db";
 import { judgeAnswer, rewriteHeadings } from "./llm";
 import { sendCompletedToAdmins } from "./emails";
 import { brandForQuestionnaire } from "./brand";
+import { takeHomepageScreenshot } from "./screenshot";
 import { config } from "./config";
 
 export type Interview = {
@@ -23,6 +24,8 @@ export type Interview = {
   approval_email: string | null;
   approved_at: Date | null;
   published_at: Date | null;
+  homepage_url: string | null;
+  screenshot_error: string | null;
   publication_date: string | null;
   completed_at: Date | null;
   created_at: Date;
@@ -244,6 +247,7 @@ export async function finishInterview(token: string): Promise<SubmitResult> {
     WHERE id = ${i.id} AND status = 'in_progress' RETURNING *`;
   if (!row) return { ok: true };
   void generateDraft(i.id);
+  void takeHomepageScreenshot(i.id).catch((err) => console.error("[screenshot]", err));
   void sendCompletedToAdmins(row as unknown as Interview).catch(() => {});
   return { ok: true };
 }

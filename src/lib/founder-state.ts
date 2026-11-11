@@ -19,7 +19,7 @@ export async function founderState(i: Interview): Promise<FounderState> {
     getQuestions(i.questionnaire_id),
     getMessages(i.id),
     getAnswers(i.id),
-    db()`SELECT id, filename, size_bytes FROM uploads WHERE interview_id = ${i.id} ORDER BY id`,
+    db()`SELECT id, filename, size_bytes FROM uploads WHERE interview_id = ${i.id} AND kind = 'founder' ORDER BY id`,
     brandForQuestionnaire(i.questionnaire_id),
   ]);
   const last = questions[questions.length - 1];
