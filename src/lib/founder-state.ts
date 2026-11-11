@@ -9,10 +9,17 @@ export type FounderState = {
   messages: { id: number; role: string; kind: string; content: string }[];
   atClosing: boolean;
   openQuestion: { id: number; layer: string } | null;
-  progress: { answered: number; total: number; layer: string };
+  progress: {
+    answered: number; total: number; layer: string;
+    main: { done: number; total: number; minutesLeft: number };
+    deep: { done: number; total: number; minutesLeft: number };
+  };
   review: { questionId: number; layer: string; section: string | null; prompt: string; text: string; skipped: boolean }[];
   uploads: { id: number; filename: string; size: number }[];
 };
+
+// Rough minutes per question, used for the time estimate shown to the founder.
+const MINUTES: Record<string, number> = { public: 3, deep: 2, closing: 2 };
 
 export async function founderState(i: Interview): Promise<FounderState> {
   const [questions, messages, answers, uploads, brand] = await Promise.all([
@@ -26,6 +33,11 @@ export async function founderState(i: Interview): Promise<FounderState> {
   const atClosing = Boolean(last) && i.current_position > last.position;
   const open = questions.find((q) => q.position === i.current_position) ?? null;
   const answeredCount = questions.filter((q) => q.position < i.current_position).length;
+  const seg = (layers: string[]) => {
+    const qs = questions.filter((q) => layers.includes(q.layer));
+    const pending = qs.filter((q) => q.position >= i.current_position);
+    return { done: qs.length - pending.length, total: qs.length, minutesLeft: pending.reduce((m, q) => m + (MINUTES[q.layer] ?? 2), 0) };
+  };
   return {
     newsletter: { name: brand.name, logo: brand.logo },
     founderName: i.founder_name,
@@ -33,7 +45,7 @@ export async function founderState(i: Interview): Promise<FounderState> {
     messages: messages.map((m) => ({ id: m.id, role: m.role, kind: m.kind, content: m.content })),
     atClosing,
     openQuestion: open ? { id: open.id, layer: open.layer } : null,
-    progress: { answered: answeredCount, total: questions.length, layer: open?.layer ?? "done" },
+    progress: { answered: answeredCount, total: questions.length, layer: open?.layer ?? "done", main: seg(["public", "closing"]), deep: seg(["deep"]) },
     review: atClosing
       ? questions.map((q) => {
           const a = answers.find((x) => x.question_id === q.id);

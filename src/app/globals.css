@@ -74,6 +74,14 @@ label { display: block; font-weight: 600; font-size: 14px; margin: 12px 0 6px; }
 .typing { color: var(--muted); font-size: 14px; font-style: italic; }
 .progress { height: 4px; background: var(--line); border-radius: 4px; overflow: hidden; margin-bottom: 20px; }
 .progress div { height: 100%; background: var(--accent); }
+.progress2 { margin-bottom: 20px; }
+.progress2-bar { display: flex; gap: 4px; height: 10px; }
+.progress2-bar .seg { flex-basis: 0; background: var(--line); border-radius: 5px; overflow: hidden; }
+.progress2-bar .seg > div { height: 100%; transition: width .4s ease; }
+.progress2-bar .seg.main > div { background: var(--accent); }
+.progress2-bar .seg.deep > div { background: var(--coral); }
+.progress2-labels { display: flex; gap: 4px; margin: 6px 0 2px; color: var(--muted); }
+.progress2-labels span { flex-basis: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Tables */
 table { width: 100%; border-collapse: collapse; font-size: 14px; }

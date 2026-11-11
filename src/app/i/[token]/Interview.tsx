@@ -10,7 +10,11 @@ type State = {
   messages: { id: number; role: string; kind: string; content: string }[];
   atClosing: boolean;
   openQuestion: { id: number; layer: string } | null;
-  progress: { answered: number; total: number; layer: string };
+  progress: {
+    answered: number; total: number; layer: string;
+    main: { done: number; total: number; minutesLeft: number };
+    deep: { done: number; total: number; minutesLeft: number };
+  };
   review: { questionId: number; layer: string; section: string | null; prompt: string; text: string; skipped: boolean }[];
   uploads: { id: number; filename: string; size: number }[];
 };
@@ -83,7 +87,6 @@ export default function Interview({ token }: { token: string }) {
   }
 
   const finished = !["invited", "in_progress"].includes(state.status);
-  const pct = Math.round((state.progress.answered / Math.max(1, state.progress.total)) * 100);
 
   const composerOpen = !finished && !state.atClosing && Boolean(state.openQuestion);
   return (
@@ -92,13 +95,14 @@ export default function Interview({ token }: { token: string }) {
         <Logo src={state.newsletter.logo} alt={state.newsletter.name} />
         <span>{state.newsletter.name} · Interview with {state.founderName}</span>
       </div>
-      {!finished && <div className="progress" aria-label={`${pct}% complete`}><div style={{ width: `${pct}%` }} /></div>}
+      {!finished && <Progress p={state.progress} atClosing={state.atClosing} />}
 
       <div className="chat">
         {state.messages.map((m) => (
           <div key={m.id} className={`bubble ${m.role}`}>{m.content}</div>
         ))}
         {busy && !state.atClosing && <div className="typing">…</div>}
+        {!finished && state.atClosing && <ChatUpload token={token} state={state} setState={setState} />}
       </div>
 
       {finished && (
@@ -108,7 +112,7 @@ export default function Interview({ token }: { token: string }) {
         </div>
       )}
 
-      {!finished && state.atClosing && <Review token={token} state={state} setState={setState} post={post} busy={busy} />}
+      {!finished && state.atClosing && <Review state={state} post={post} busy={busy} />}
 
       <div ref={bottom} />
 
@@ -139,54 +143,22 @@ export default function Interview({ token }: { token: string }) {
   );
 }
 
-function Review({ token, state, setState, post, busy }: {
-  token: string;
+function Review({ state, post, busy }: {
   state: State;
-  setState: (s: State) => void;
   post: (path: string, payload?: unknown) => Promise<boolean>;
   busy: boolean;
 }) {
   const [editing, setEditing] = useState<number | null>(null);
   const [value, setValue] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState("");
 
   async function save(questionId: number) {
     const ok = await post("edit", { questionId, text: value });
     if (ok) setEditing(null);
   }
 
-  async function upload(files: FileList | null) {
-    if (!files?.length) return;
-    setUploading(true);
-    setUploadError("");
-    for (const file of Array.from(files)) {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch(`/api/i/${token}/upload`, { method: "POST", body: form });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) { setUploadError(`${file.name}: ${body.error ?? "upload failed"}`); break; }
-      setState(body);
-    }
-    setUploading(false);
-  }
-
   let lastLayer = "";
   return (
     <div style={{ marginTop: 28 }}>
-      <div className="card">
-        <h2>Add images</h2>
-        <p className="muted small">Screenshots, dashboards, product shots, your logo and a photo of yourself. Up to 10 images (PNG, JPG, WebP or GIF), 10 MB each.</p>
-        <input type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => upload(e.target.files)} disabled={uploading} />
-        {uploading && <p className="muted small">Uploading…</p>}
-        {uploadError && <p className="error">{uploadError}</p>}
-        {state.uploads.length > 0 && (
-          <ul className="small">
-            {state.uploads.map((u) => <li key={u.id}>{u.filename} <span className="muted">({Math.ceil(u.size / 1024)} KB)</span></li>)}
-          </ul>
-        )}
-      </div>
-
       <div className="card">
         <h2>Review your answers</h2>
         <p className="muted small">You can edit any answer before finishing.</p>
@@ -218,8 +190,69 @@ function Review({ token, state, setState, post, busy }: {
 
       <div className="card">
         <p>When you're happy with everything, click Finish to send the interview.</p>
-        <button onClick={() => post("finish")} disabled={busy || uploading || editing !== null}>{busy ? "Sending…" : "Finish"}</button>
+        <button onClick={() => post("finish")} disabled={busy || editing !== null}>{busy ? "Sending…" : "Finish"}</button>
       </div>
+    </div>
+  );
+}
+
+function ChatUpload({ token, state, setState }: { token: string; state: State; setState: (s: State) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  async function upload(files: FileList | null) {
+    if (!files?.length) return;
+    setUploading(true);
+    setUploadError("");
+    for (const file of Array.from(files)) {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/i/${token}/upload`, { method: "POST", body: form });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { setUploadError(`${file.name}: ${body.error ?? "upload failed"}`); break; }
+      setState(body);
+    }
+    setUploading(false);
+  }
+
+  return (
+    <div className="bubble founder chat-upload">
+      <label className="btn" style={{ margin: 0, display: "inline-block", cursor: uploading ? "wait" : "pointer" }}>
+        {uploading ? "Uploading…" : state.uploads.length ? "Add more images" : "Upload your photo"}
+        <input type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => { upload(e.target.files); e.target.value = ""; }} disabled={uploading} style={{ display: "none" }} />
+      </label>
+      <div className="small muted" style={{ marginTop: 8 }}>Your photo, logo, screenshots. Up to 10 images (PNG, JPG, WebP or GIF), 10 MB each.</div>
+      {state.uploads.length > 0 && (
+        <ul className="small" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+          {state.uploads.map((u) => <li key={u.id}>{u.filename} <span className="muted">({Math.ceil(u.size / 1024)} KB)</span></li>)}
+        </ul>
+      )}
+      {uploadError && <p className="error">{uploadError}</p>}
+    </div>
+  );
+}
+
+function Progress({ p, atClosing }: { p: State["progress"]; atClosing: boolean }) {
+  const { main, deep } = p;
+  const all = Math.max(1, main.total + deep.total);
+  const fill = (s: { done: number; total: number }) => `${Math.round((s.done / Math.max(1, s.total)) * 100)}%`;
+  const fmt = (m: number) => (m <= 0 ? "done" : m < 60 ? `about ${m} min` : `about ${Math.floor(m / 60)} h ${m % 60} min`);
+  const left = main.minutesLeft + deep.minutesLeft;
+  let note: string;
+  if (atClosing) note = "All questions answered. Add your photo, review and click Finish.";
+  else if (deep.minutesLeft > 0 && p.layer !== "deep") note = `${fmt(left)} left in total, ${fmt(main.minutesLeft)} without the optional Deep Dive.`;
+  else note = `${fmt(left)} left.`;
+  return (
+    <div className="progress2" aria-label={note}>
+      <div className="progress2-bar">
+        <div className="seg main" style={{ flexGrow: main.total / all }}><div style={{ width: fill(main) }} /></div>
+        <div className="seg deep" style={{ flexGrow: deep.total / all }}><div style={{ width: fill(deep) }} /></div>
+      </div>
+      <div className="progress2-labels small">
+        <span style={{ flexGrow: main.total / all }}>Interview {main.done}/{main.total}</span>
+        <span style={{ flexGrow: deep.total / all }}>Deep Dive (optional) {deep.done}/{deep.total}</span>
+      </div>
+      <div className="small muted">{note.charAt(0).toUpperCase() + note.slice(1)}</div>
     </div>
   );
 }
