@@ -139,3 +139,13 @@ ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS logo TEXT;
 ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS sender_name TEXT;
 ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS reply_to TEXT;
 ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS about TEXT;
+
+-- Model usage, to cap spend per hour.
+CREATE TABLE IF NOT EXISTS llm_usage (
+  id SERIAL PRIMARY KEY,
+  interview_id INT REFERENCES interviews(id) ON DELETE SET NULL,
+  kind TEXT NOT NULL,
+  cost_usd NUMERIC(10, 6) NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS llm_usage_created_idx ON llm_usage (created_at);

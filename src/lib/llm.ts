@@ -1,8 +1,27 @@
 import { config } from "./config";
+import { db } from "./db";
+
+export class BudgetExceeded extends Error {}
+
+/** Throws BudgetExceeded when the hourly spend cap or the per-interview call cap is reached. */
+async function checkBudget(interviewId: number | null) {
+  const sql = db();
+  const [g] = await sql`SELECT COALESCE(SUM(cost_usd), 0)::float AS spent FROM llm_usage WHERE created_at > now() - interval '1 hour'`;
+  if (g.spent >= config.llmHourlyBudgetUsd()) throw new BudgetExceeded(`hourly budget reached ($${g.spent.toFixed(2)})`);
+  if (interviewId !== null) {
+    const [c] = await sql`SELECT count(*)::int AS n FROM llm_usage WHERE interview_id = ${interviewId} AND created_at > now() - interval '1 hour'`;
+    if (c.n >= config.llmCallsPerInterviewHour()) throw new BudgetExceeded(`per-interview hourly call cap reached (${c.n})`);
+  }
+}
+
+async function recordUsage(interviewId: number | null, kind: string, cost: number) {
+  await db()`INSERT INTO llm_usage (interview_id, kind, cost_usd) VALUES (${interviewId}, ${kind}, ${cost})`;
+}
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-async function chat(messages: ChatMessage[], opts: { effort: "low" | "medium" | "high"; maxTokens: number; timeoutMs: number }) {
+async function chat(messages: ChatMessage[], opts: { effort: "low" | "medium" | "high"; maxTokens: number; timeoutMs: number; interviewId: number | null; kind: string }) {
+  await checkBudget(opts.interviewId);
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY is not set");
   const controller = new AbortController();
@@ -22,9 +41,12 @@ async function chat(messages: ChatMessage[], opts: { effort: "low" | "medium" | 
         messages,
         max_tokens: opts.maxTokens,
         reasoning: { effort: opts.effort },
+        usage: { include: true },
       }),
     });
     const body = await res.json().catch(() => ({}));
+    const cost = Number(body?.usage?.cost ?? 0);
+    await recordUsage(opts.interviewId, opts.kind, Number.isFinite(cost) ? cost : 0).catch(() => {});
     if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${body?.error?.message ?? "request failed"}`);
     const content: string = body?.choices?.[0]?.message?.content ?? "";
     if (!content) throw new Error("OpenRouter returned an empty response");
@@ -56,6 +78,7 @@ If a follow-up is needed, write it:
 Reply with JSON only, no other text: {"followup": true|false, "message": "the follow-up text, or empty string"}`;
 
 export async function judgeAnswer(input: {
+  interviewId: number;
   newsletter: { name: string; about: string };
   layer: string;
   section: string | null;
@@ -74,7 +97,7 @@ export async function judgeAnswer(input: {
   ].filter(Boolean).join("\n\n");
   const raw = await chat(
     [{ role: "system", content: followupSystem(input.newsletter.name, input.newsletter.about) }, { role: "user", content: user }],
-    { effort: "low", maxTokens: 1200, timeoutMs: 45_000 },
+    { effort: "low", maxTokens: 1200, timeoutMs: 45_000, interviewId: input.interviewId, kind: "followup" },
   );
   const out = parseJson<{ followup?: boolean; message?: string }>(raw);
   const message = (out.message ?? "").trim();
@@ -96,6 +119,7 @@ For each item, write a new heading: the question rephrased so it flows naturally
 Reply with JSON only: {"headings": [{"id": <item id>, "heading": "..."}]}`;
 
 export async function rewriteHeadings(input: {
+  interviewId: number;
   newsletter: { name: string; about: string };
   founder: string;
   company: string | null;
@@ -111,7 +135,7 @@ export async function rewriteHeadings(input: {
   ].join("\n\n");
   const raw = await chat(
     [{ role: "system", content: headingsSystem(input.newsletter.name, input.newsletter.about) }, { role: "user", content: user }],
-    { effort: "medium", maxTokens: 6000, timeoutMs: 180_000 },
+    { effort: "medium", maxTokens: 6000, timeoutMs: 180_000, interviewId: null, kind: "headings" },
   );
   const out = parseJson<{ headings?: { id: number; heading: string }[] }>(raw);
   const map = new Map<number, string>();

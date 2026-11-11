@@ -2,6 +2,7 @@ import { db } from "./db";
 import { judgeAnswer, rewriteHeadings } from "./llm";
 import { sendCompletedToAdmins } from "./emails";
 import { brandForQuestionnaire } from "./brand";
+import { config } from "./config";
 
 export type Interview = {
   id: number;
@@ -141,6 +142,13 @@ export async function submitAnswer(token: string, rawText: string): Promise<Subm
   const q = questions.find((x) => x.position === i.current_position);
   if (!q) return { ok: false, error: "There is no open question. You can review your answers and finish." };
 
+  const [{ n: recentAnswers }] = await sql`
+    SELECT count(*)::int AS n FROM messages
+    WHERE interview_id = ${i.id} AND role = 'founder' AND created_at > now() - interval '1 hour'`;
+  if (recentAnswers >= config.answersPerInterviewHour()) {
+    return { ok: false, error: "You're sending answers very quickly. Please wait a little and try again; nothing you've written so far is lost." };
+  }
+
   await addMessage(i.id, "founder", "answer", text, q.id);
 
   if (q.layer === "deep" && isSkip(text)) {
@@ -166,6 +174,7 @@ export async function submitAnswer(token: string, rawText: string): Promise<Subm
     try {
       const b = await brandForQuestionnaire(i.questionnaire_id);
       const verdict = await judgeAnswer({
+        interviewId: i.id,
         newsletter: { name: b.name, about: b.about },
         layer: q.layer,
         section: q.section,
@@ -269,6 +278,7 @@ export async function generateDraft(interviewId: number) {
       for (const it of d?.items ?? []) if (it.heading !== it.original) recentHeadings.push(it.heading);
     }
     const map = await rewriteHeadings({
+      interviewId: i.id,
       newsletter: { name: b.name, about: b.about },
       founder: i.founder_name,
       company: i.company,

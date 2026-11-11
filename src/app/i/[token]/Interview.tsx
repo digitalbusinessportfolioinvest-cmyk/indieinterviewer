@@ -176,8 +176,8 @@ function Review({ token, state, setState, post, busy }: {
     <div style={{ marginTop: 28 }}>
       <div className="card">
         <h2>Add images</h2>
-        <p className="muted small">Screenshots, dashboards, product shots, your logo and a photo of yourself. Images or PDF, up to 10 MB each.</p>
-        <input type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf" onChange={(e) => upload(e.target.files)} disabled={uploading} />
+        <p className="muted small">Screenshots, dashboards, product shots, your logo and a photo of yourself. Up to 10 images (PNG, JPG, WebP or GIF), 10 MB each.</p>
+        <input type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => upload(e.target.files)} disabled={uploading} />
         {uploading && <p className="muted small">Uploading…</p>}
         {uploadError && <p className="error">{uploadError}</p>}
         {state.uploads.length > 0 && (
