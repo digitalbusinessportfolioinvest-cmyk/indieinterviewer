@@ -64,6 +64,28 @@ export async function saveReviewOp(id: number, items: { questionId: number; head
   return { ok: true, message: "Saved." };
 }
 
+/** Places the founder's images: upload id -> questionId it follows, "none" to leave it out, or "auto". */
+export async function savePhotoPlacementOp(id: number, placement: Record<string, number | "none" | "auto">): Promise<OpResult> {
+  const i = await getInterviewById(id);
+  if (!i || !i.draft) return { ok: false, message: "There is no draft yet." };
+  if (["approved", "scheduled", "published"].includes(i.status)) return { ok: false, message: "This interview is already approved and can't be edited." };
+  const photos = await db()`SELECT id FROM uploads WHERE interview_id = ${id} AND kind <> 'screenshot'`;
+  const photoIds = new Set(photos.map((p) => String(p.id)));
+  const qIds = new Set(i.draft.items.map((it) => it.questionId));
+  const next: Record<string, number | "none"> = { ...(i.draft.imagePlacement ?? {}) };
+  for (const [k, v] of Object.entries(placement)) {
+    if (!photoIds.has(String(k))) return { ok: false, message: `Image ${k} doesn't belong to this interview.` };
+    if (v === "auto") delete next[k];
+    else if (v === "none") next[k] = "none";
+    else if (qIds.has(Number(v))) next[k] = Number(v);
+    else return { ok: false, message: `Unknown questionId ${v}.` };
+  }
+  const draft: Draft = { ...i.draft, imagePlacement: next };
+  const sql = db();
+  await sql`UPDATE interviews SET draft = ${sql.json(draft as never)}, updated_at = now() WHERE id = ${id}`;
+  return { ok: true, message: "Photos placed." };
+}
+
 export async function regenerateDraftOp(id: number): Promise<OpResult> {
   const i = await getInterviewById(id);
   if (!i || !i.completed_at) return { ok: false, message: "The interview isn't finished yet." };

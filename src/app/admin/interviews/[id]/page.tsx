@@ -8,6 +8,9 @@ import { STATUS_LABELS } from "@/lib/status";
 import { draftToMarkdown } from "@/components/ArticleView";
 import AdminHeader from "../../AdminHeader";
 import ReviewEditor from "./ReviewEditor";
+import PhotoPlacer from "./PhotoPlacer";
+import EditionView from "@/components/EditionView";
+import { buildEdition } from "@/lib/edition";
 import { ActionButton, DeleteInterview, PublicationDateForm, PublishedToggle, ScreenshotForm } from "./Controls";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +36,8 @@ export default async function InterviewDetail({ params, searchParams }: { params
       return { id: u.id as number, filename: u.filename as string, size: u.size_bytes as number, kind: u.kind as string, url };
     }),
   );
+
+  const edition = i.draft ? await buildEdition(i.id, i.draft, i.analysis) : null;
 
   const interviewUrl = `${config.appUrl()}/i/${i.token}`;
   const approvalUrl = `${config.appUrl()}/approve/${i.approval_token}`;
@@ -127,6 +132,23 @@ export default async function InterviewDetail({ params, searchParams }: { params
           status={i.status}
           canRegenerate={editable && i.status !== "awaiting_approval"}
         />
+      )}
+
+      {i.draft && edition && edition.photos.length > 0 && (
+        <PhotoPlacer
+          key={JSON.stringify(i.draft.imagePlacement ?? {})}
+          id={i.id}
+          photos={edition.photos}
+          options={i.draft.items.map((it) => ({ questionId: it.questionId, heading: it.heading }))}
+          editable={editable}
+        />
+      )}
+
+      {edition && (
+        <details className="card">
+          <summary><strong>Preview the edition</strong> <span className="small muted">(what the founder sees)</span></summary>
+          <EditionView edition={edition} />
+        </details>
       )}
 
       {i.status === "awaiting_approval" && (

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import {
+  savePhotoPlacementOp,
   createInterviewOp, deleteInterviewOp, regenerateDraftOp, resendInvitationOp, saveReviewOp,
   sendForApprovalOp, setPublicationDateOp, setPublishedOp,
 } from "@/lib/admin-ops";
@@ -35,6 +36,13 @@ export async function resendInvitation(id: number): Promise<ActionResult> {
 export async function saveReview(id: number, items: { questionId: number; heading: string; answer: string }[], analysis: string): Promise<ActionResult> {
   await requireAdmin();
   const r = await saveReviewOp(id, items, analysis);
+  revalidatePath(`/admin/interviews/${id}`);
+  return r;
+}
+
+export async function savePhotoPlacement(id: number, placement: Record<string, number | "none" | "auto">): Promise<ActionResult> {
+  await requireAdmin();
+  const r = await savePhotoPlacementOp(id, placement);
   revalidatePath(`/admin/interviews/${id}`);
   return r;
 }

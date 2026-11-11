@@ -92,3 +92,7 @@ th { color: var(--muted); font-weight: 600; }
 .article h2 { margin-top: 28px; }
 .article .section-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 32px; }
 .clause { background: var(--soft); border-radius: var(--radius); padding: 16px; font-size: 14px; }
+.edition-img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; margin: 20px 0; }
+.photo-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.photo-row img { width: 96px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); flex: none; }
+.photo-row select { flex: 1; min-width: 0; }

@@ -55,7 +55,13 @@ export type DraftItem = {
   sourceMode?: "translated" | "corrected";
 };
 
-export type Draft = { items: DraftItem[]; generatedAt: string; headingsRewritten: boolean };
+export type Draft = {
+  items: DraftItem[];
+  generatedAt: string;
+  headingsRewritten: boolean;
+  /** Manual placement of the founder's images: upload id -> question id it follows, or "none" to leave it out. */
+  imagePlacement?: Record<string, number | "none">;
+};
 
 export type Message = { id: number; role: "interviewer" | "founder"; kind: string; content: string; question_id: number | null };
 
@@ -316,6 +322,7 @@ export async function generateDraft(interviewId: number) {
   }
 
   const draft: Draft = { items, generatedAt: new Date().toISOString(), headingsRewritten: rewritten };
+  if (i.draft?.imagePlacement) draft.imagePlacement = i.draft.imagePlacement; // keep manual photo placement
   await sql`
     UPDATE interviews SET draft = ${sql.json(draft as never)}, draft_status = ${rewritten ? "ready" : "failed"},
       status = CASE WHEN status = 'completed' THEN 'in_review' ELSE status END, updated_at = now()

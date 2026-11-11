@@ -23,34 +23,48 @@ export function imageUrl(id: number) {
   return `${config.appUrl()}/img/${id}/${imageSig(id)}`;
 }
 
-/** Spreads the founder's images through the public answers: the first after the opening answer, the rest evenly. */
-export async function buildEdition(interviewId: number, draft: Draft, analysis: string | null): Promise<Edition> {
+export type PhotoPlacement = EditionImage & { after: number | "none"; auto: boolean };
+
+/** Builds the edition. Images follow the manual placement saved in the draft; otherwise the first goes after
+ *  the opening answer and the rest are spread evenly through the public answers. */
+export async function buildEdition(interviewId: number, draft: Draft, analysis: string | null): Promise<Edition & { photos: PhotoPlacement[] }> {
   const rows = await db()`SELECT id, filename, kind FROM uploads WHERE interview_id = ${interviewId} ORDER BY id`;
   const toImg = (r: Record<string, unknown>): EditionImage => ({ id: r.id as number, filename: r.filename as string, url: imageUrl(r.id as number) });
   const shot = rows.find((r) => r.kind === "screenshot");
-  const photos = rows.filter((r) => r.kind !== "screenshot").map(toImg);
+  const photoImgs = rows.filter((r) => r.kind !== "screenshot").map(toImg);
 
   const { pub, deep, closing } = splitDraft(draft);
-  const qa = (it: DraftItem): EditionBlock => ({ type: "qa", heading: it.heading, answer: it.answer });
+  const validIds = new Set(draft.items.map((it) => it.questionId));
+  const manual = draft.imagePlacement ?? {};
 
-  // Positions (after which public answer) for each photo.
-  const after = new Map<number, EditionImage[]>();
-  if (photos.length && pub.length) {
+  // Automatic slots for images without a manual placement.
+  const autoTargets = photoImgs.filter((ph) => manual[String(ph.id)] === undefined);
+  const autoAfter = new Map<number, number>();
+  if (pub.length) {
     const slots = Math.max(1, pub.length - 1);
-    photos.forEach((ph, k) => {
-      const pos = k === 0 ? 0 : Math.min(pub.length - 1, Math.round((k * slots) / photos.length));
-      after.set(pos, [...(after.get(pos) ?? []), ph]);
+    autoTargets.forEach((ph, k) => {
+      const pos = k === 0 ? 0 : Math.min(pub.length - 1, Math.round((k * slots) / autoTargets.length));
+      autoAfter.set(ph.id, pub[pos].questionId);
     });
   }
-  const blocks: EditionBlock[] = [];
-  pub.forEach((it, idx) => {
-    blocks.push(qa(it));
-    for (const ph of after.get(idx) ?? []) blocks.push({ type: "image", image: ph });
+  const photos: PhotoPlacement[] = photoImgs.map((ph) => {
+    const m = manual[String(ph.id)];
+    if (m === "none") return { ...ph, after: "none", auto: false };
+    if (typeof m === "number" && validIds.has(m)) return { ...ph, after: m, auto: false };
+    return { ...ph, after: autoAfter.get(ph.id) ?? "none", auto: true };
   });
-  if (!pub.length) for (const ph of photos) blocks.push({ type: "image", image: ph });
+  const byQ = new Map<number, EditionImage[]>();
+  for (const ph of photos) if (ph.after !== "none") byQ.set(ph.after, [...(byQ.get(ph.after) ?? []), ph]);
+
+  const blocks: EditionBlock[] = [];
+  const push = (it: DraftItem) => {
+    blocks.push({ type: "qa", heading: it.heading, answer: it.answer });
+    for (const ph of byQ.get(it.questionId) ?? []) blocks.push({ type: "image", image: { id: ph.id, filename: ph.filename, url: ph.url } });
+  };
+  pub.forEach(push);
   if (deep.length || analysis) blocks.push({ type: "section", label: "Deep Dive" });
-  deep.forEach((it) => blocks.push(qa(it)));
+  deep.forEach(push);
   if (analysis) blocks.push({ type: "qa", heading: "Analysis", answer: analysis });
-  closing.forEach((it) => blocks.push(qa(it)));
-  return { cover: shot ? toImg(shot) : null, blocks };
+  closing.forEach(push);
+  return { cover: shot ? toImg(shot) : null, blocks, photos };
 }

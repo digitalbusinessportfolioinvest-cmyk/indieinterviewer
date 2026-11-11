@@ -5,9 +5,10 @@ import { signedGetUrl } from "./storage";
 import { STATUS_LABELS } from "./status";
 import { takeHomepageScreenshot } from "./screenshot";
 import { draftToMarkdown } from "@/components/ArticleView";
+import { buildEdition } from "./edition";
 import {
   createInterviewOp, deleteInterviewOp, interviewLinks, regenerateDraftOp, resendInvitationOp,
-  saveReviewOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
+  saveReviewOp, savePhotoPlacementOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
 } from "./admin-ops";
 
 type Args = Record<string, unknown>;
@@ -107,6 +108,7 @@ export const tools: Tool[] = [
         draft: i.draft,
         analysis: i.analysis,
         draft_markdown: i.draft ? draftToMarkdown(i.draft, i.analysis) : null,
+        photos: i.draft ? (await buildEdition(i.id, i.draft, i.analysis)).photos.map((p) => ({ uploadId: p.id, filename: p.filename, after_questionId: p.after, automatic: p.auto, url: p.url })) : [],
         uploads: await Promise.all(uploads.map(async (u) => ({
           filename: u.filename, kind: u.kind, content_type: u.content_type, size_bytes: u.size_bytes,
           url: await signedGetUrl(u.object_key, u.filename).catch(() => null),
@@ -171,6 +173,20 @@ export const tools: Tool[] = [
         answer: x.answer === undefined ? undefined : String(x.answer),
       })) : [];
       return saveReviewOp(num(a.id), items, a.analysis === undefined ? undefined : String(a.analysis));
+    },
+  },
+  {
+    name: "place_photos",
+    description: "Choose where each founder image goes in the edition. placement maps upload id (from get_interview's photos) to the questionId it should follow, \"none\" to leave it out, or \"auto\" for automatic placement. Only before approval.",
+    inputSchema: {
+      type: "object",
+      properties: { id, placement: { type: "object", additionalProperties: { oneOf: [{ type: "integer" }, { type: "string", enum: ["none", "auto"] }] } } },
+      required: ["id", "placement"],
+    },
+    run: async (a) => {
+      const p: Record<string, number | "none" | "auto"> = {};
+      for (const [k, v] of Object.entries((a.placement ?? {}) as Record<string, unknown>)) p[k] = v === "none" || v === "auto" ? v : num(v);
+      return savePhotoPlacementOp(num(a.id), p);
     },
   },
   {

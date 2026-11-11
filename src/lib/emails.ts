@@ -51,15 +51,27 @@ export async function sendCompletedToAdmins(i: WithQn & { founder_name: string; 
   ], { label: "Review the interview", url }, i.id, `completed-${i.id}`);
 }
 
-export async function sendApprovalRequest(i: WithQn & { founder_name: string; founder_email: string; approval_token: string }) {
+export async function sendApprovalRequest(i: WithQn & { founder_name: string; founder_email: string; approval_token: string; draft: Draft | null; analysis: string | null }) {
   const b = await brandForQuestionnaire(i.questionnaire_id);
   const url = `${config.appUrl()}/approve/${i.approval_token}`;
-  return send("approval_request", i.founder_email, `Your ${b.name} interview is ready for your approval`, [
+  const paragraphs = [
     `Hi ${i.founder_name},`,
-    "The text of your interview is ready. Please read it on the page below and, if everything reflects your answers, approve it there.",
-    "Please note that this is the text only. The published edition will also include a cover image (a screenshot of your homepage) and the photos you sent us.",
+    "Your interview is ready: this is the edition we will publish, with the cover and your photos. You can read it below or on the page linked from the button and, if everything reflects your answers, approve it there.",
     "If anything needs changing, just reply to this email and tell us what.",
-  ], { label: "Read and approve", url }, i.id, undefined, b);
+  ];
+  const button = { label: "Read and approve", url };
+  if (!i.draft) return send("approval_request", i.founder_email, `Your ${b.name} interview is ready for your approval`, paragraphs, button, i.id, undefined, b);
+  const edition = await buildEdition(i.id, i.draft, i.analysis);
+  return sendEmail({
+    kind: "approval_request",
+    to: i.founder_email,
+    subject: `Your ${b.name} interview is ready for your approval`,
+    text: `${textWithLink(paragraphs, button)}\n\n---\n\n${editionText(edition, false)}`,
+    html: layout(paragraphs, button, b.name, editionHtml(edition, false)),
+    interviewId: i.id,
+    from: fromHeader(b),
+    replyTo: b.replyTo,
+  });
 }
 
 export async function sendApprovedToAdmins(i: WithQn & { founder_name: string; company: string | null }) {
@@ -80,9 +92,9 @@ export async function sendPublicationDate(i: WithQn & { founder_name: string; fo
   ], undefined, i.id, undefined, b);
 }
 
-function editionHtml(e: Edition) {
+function editionHtml(e: Edition, forAdmin = true) {
   const img = (u: string, alt: string) => `<img src="${escapeHtml(u)}" alt="${escapeHtml(alt)}" style="display:block;width:100%;max-width:560px;height:auto;border:1px solid #ddd;border-radius:6px;margin:18px 0">`;
-  let html = e.cover ? img(e.cover.url, "Cover: homepage screenshot") : `<p style="color:#a3271c;font-size:14px">No cover yet (homepage screenshot missing).</p>`;
+  let html = e.cover ? img(e.cover.url, "Cover") : forAdmin ? `<p style="color:#a3271c;font-size:14px">No cover yet (homepage screenshot missing).</p>` : "";
   for (const bl of e.blocks) {
     if (bl.type === "section") html += `<div style="margin:28px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#666">${escapeHtml(bl.label)}</div>`;
     else if (bl.type === "image") html += img(bl.image.url, bl.image.filename);
@@ -91,8 +103,8 @@ function editionHtml(e: Edition) {
   return `<div style="border-top:1px solid #ddd;margin-top:28px;padding-top:4px">${html}</div>`;
 }
 
-function editionText(e: Edition) {
-  const parts: string[] = [e.cover ? `[Cover: ${e.cover.url}]` : "[No cover yet]"];
+function editionText(e: Edition, forAdmin = true) {
+  const parts: string[] = e.cover ? [`[Cover: ${e.cover.url}]`] : forAdmin ? ["[No cover yet]"] : [];
   for (const bl of e.blocks) {
     if (bl.type === "section") parts.push(bl.label.toUpperCase());
     else if (bl.type === "image") parts.push(`[Image: ${bl.image.url}]`);

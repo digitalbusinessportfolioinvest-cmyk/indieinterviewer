@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { getQuestionnaire, type Interview } from "@/lib/interview";
-import ArticleView from "@/components/ArticleView";
+import EditionView from "@/components/EditionView";
+import { buildEdition } from "@/lib/edition";
 import ApproveForm from "./ApproveForm";
 import Logo from "@/components/Logo";
 import { brandForQuestionnaire } from "@/lib/brand";
@@ -15,13 +16,14 @@ export default async function ApprovePage({ params }: { params: Promise<{ token:
   if (!i || !i.draft || !["awaiting_approval", "approved", "scheduled", "published"].includes(i.status)) notFound();
   const [qn, brand] = await Promise.all([getQuestionnaire(i.questionnaire_id), brandForQuestionnaire(i.questionnaire_id)]);
   const approved = i.status !== "awaiting_approval";
+  const edition = await buildEdition(i.id, i.draft, i.analysis);
 
   return (
     <main className="wrap">
       <div className="brand"><Logo src={brand.logo} alt={brand.name} /><span>{brand.name} · Interview with {i.founder_name}</span></div>
       <div className="card">
-        <p className="muted small">Please read the text of your interview below. The published edition will also include a cover image (a screenshot of your homepage) and the photos you sent us.</p>
-        <ArticleView draft={i.draft} analysis={i.analysis} />
+        <p className="muted small">Please read your interview below. This is the edition we will publish.</p>
+        <EditionView edition={edition} />
       </div>
       <div className="card">
         {approved ? (
