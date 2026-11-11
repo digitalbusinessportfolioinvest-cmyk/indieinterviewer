@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS interviews (
   founder_email TEXT NOT NULL,
   company TEXT,
   status TEXT NOT NULL DEFAULT 'invited'
-    CHECK (status IN ('invited','in_progress','completed','in_review','awaiting_approval','approved','scheduled')),
+    CHECK (status IN ('invited','in_progress','completed','in_review','awaiting_approval','approved','scheduled','published')),
   current_position INT NOT NULL DEFAULT 1,
   deep_intro_shown BOOLEAN NOT NULL DEFAULT false,
   deep_skipped_count INT NOT NULL DEFAULT 0,
@@ -149,3 +149,9 @@ CREATE TABLE IF NOT EXISTS llm_usage (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS llm_usage_created_idx ON llm_usage (created_at);
+
+-- Publication queue: final "published" status.
+ALTER TABLE interviews ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+ALTER TABLE interviews DROP CONSTRAINT IF EXISTS interviews_status_check;
+ALTER TABLE interviews ADD CONSTRAINT interviews_status_check
+  CHECK (status IN ('invited','in_progress','completed','in_review','awaiting_approval','approved','scheduled','published'));

@@ -22,6 +22,7 @@ export type Interview = {
   approval_clause: string | null;
   approval_email: string | null;
   approved_at: Date | null;
+  published_at: Date | null;
   publication_date: string | null;
   completed_at: Date | null;
   created_at: Date;

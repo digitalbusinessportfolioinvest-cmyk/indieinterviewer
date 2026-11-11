@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteInterview, regenerateDraft, resendInvitation, setPublicationDate, type ActionResult } from "../../actions";
+import { deleteInterview, regenerateDraft, resendInvitation, setPublicationDate, setPublished, type ActionResult } from "../../actions";
 
 export function ActionButton({ kind, id, label }: { kind: "invite" | "regenerate"; id: number; label: string }) {
   const [pending, start] = useTransition();
@@ -55,5 +55,18 @@ export function DeleteInterview({ id, name }: { id: number; name: string }) {
       </button>
       {result && !result.ok && <p className="error">{result.message}</p>}
     </div>
+  );
+}
+
+export function PublishedToggle({ id, published }: { id: number; published: boolean }) {
+  const [pending, start] = useTransition();
+  const [result, setResult] = useState<ActionResult | null>(null);
+  return (
+    <span className="row">
+      <button className={published ? "secondary" : undefined} disabled={pending} onClick={() => start(async () => setResult(await setPublished(id, !published)))}>
+        {pending ? "Saving…" : published ? "Undo: not published yet" : "Mark as published"}
+      </button>
+      {result && <span className={result.ok ? "success" : "error"} style={{ marginTop: 0 }}>{result.message}</span>}
+    </span>
   );
 }

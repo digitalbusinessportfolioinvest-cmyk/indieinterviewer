@@ -6,4 +6,5 @@ export const STATUS_LABELS: Record<string, string> = {
   awaiting_approval: "Awaiting approval",
   approved: "Approved",
   scheduled: "Date sent",
+  published: "Published",
 };

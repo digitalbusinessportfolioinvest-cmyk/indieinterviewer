@@ -55,7 +55,7 @@ export async function saveReview(id: number, items: { questionId: number; headin
   await requireAdmin();
   const i = await getInterviewById(id);
   if (!i || !i.draft) return { ok: false, message: "There is no draft to save yet." };
-  if (["approved", "scheduled"].includes(i.status)) return { ok: false, message: "This interview is already approved and can't be edited." };
+  if (["approved", "scheduled", "published"].includes(i.status)) return { ok: false, message: "This interview is already approved and can't be edited." };
   const draft: Draft = {
     ...i.draft,
     items: i.draft.items.map((it) => {
@@ -73,7 +73,7 @@ export async function regenerateDraft(id: number): Promise<ActionResult> {
   await requireAdmin();
   const i = await getInterviewById(id);
   if (!i || !i.completed_at) return { ok: false, message: "The interview isn't finished yet." };
-  if (["awaiting_approval", "approved", "scheduled"].includes(i.status)) return { ok: false, message: "The draft was already sent to the founder." };
+  if (["awaiting_approval", "approved", "scheduled", "published"].includes(i.status)) return { ok: false, message: "The draft was already sent to the founder." };
   await db()`UPDATE interviews SET draft_status = 'generating' WHERE id = ${id}`;
   await generateDraft(id);
   revalidatePath(`/admin/interviews/${id}`);
@@ -107,6 +107,22 @@ export async function setPublicationDate(id: number, date: string): Promise<Acti
   await db()`UPDATE interviews SET publication_date = ${date}, status = 'scheduled', updated_at = now() WHERE id = ${id}`;
   revalidatePath(`/admin/interviews/${id}`);
   return { ok: true, message: `Publication date sent: ${label}.` };
+}
+
+export async function setPublished(id: number, published: boolean): Promise<ActionResult> {
+  await requireAdmin();
+  const i = await getInterviewById(id);
+  if (!i) return { ok: false, message: "Not found." };
+  if (published) {
+    if (!["approved", "scheduled"].includes(i.status)) return { ok: false, message: "Only approved interviews can be marked as published." };
+    await db()`UPDATE interviews SET status = 'published', published_at = now(), updated_at = now() WHERE id = ${id}`;
+  } else {
+    if (i.status !== "published") return { ok: false, message: "It isn't marked as published." };
+    await db()`UPDATE interviews SET status = CASE WHEN publication_date IS NULL THEN 'approved' ELSE 'scheduled' END, published_at = NULL, updated_at = now() WHERE id = ${id}`;
+  }
+  revalidatePath(`/admin/interviews/${id}`);
+  revalidatePath("/admin");
+  return { ok: true, message: published ? "Marked as published." : "Back in the publication queue." };
 }
 
 export async function deleteInterview(id: number): Promise<ActionResult> {

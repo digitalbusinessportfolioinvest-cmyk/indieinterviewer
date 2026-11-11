@@ -8,7 +8,7 @@ import { STATUS_LABELS } from "@/lib/status";
 import { draftToMarkdown } from "@/components/ArticleView";
 import AdminHeader from "../../AdminHeader";
 import ReviewEditor from "./ReviewEditor";
-import { ActionButton, DeleteInterview, PublicationDateForm } from "./Controls";
+import { ActionButton, DeleteInterview, PublicationDateForm, PublishedToggle } from "./Controls";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +131,15 @@ export default async function InterviewDetail({ params, searchParams }: { params
           <h2>Publication date</h2>
           {pubDate && <p>Sent to the founder: {pubDate}</p>}
           <PublicationDateForm id={i.id} current={pubDate} />
+          <div style={{ marginTop: 16 }}><PublishedToggle id={i.id} published={false} /></div>
+        </div>
+      )}
+
+      {i.status === "published" && (
+        <div className="card">
+          <h2>Published</h2>
+          <p>Marked as published{i.published_at ? ` on ${new Date(i.published_at).toLocaleDateString("en-GB")}` : ""}.</p>
+          <PublishedToggle id={i.id} published />
         </div>
       )}
 

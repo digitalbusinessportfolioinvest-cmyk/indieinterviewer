@@ -12,7 +12,7 @@ export default async function ApprovePage({ params }: { params: Promise<{ token:
   const { token } = await params;
   const [row] = await db()`SELECT * FROM interviews WHERE approval_token = ${token}`;
   const i = row as unknown as Interview | undefined;
-  if (!i || !i.draft || !["awaiting_approval", "approved", "scheduled"].includes(i.status)) notFound();
+  if (!i || !i.draft || !["awaiting_approval", "approved", "scheduled", "published"].includes(i.status)) notFound();
   const [qn, brand] = await Promise.all([getQuestionnaire(i.questionnaire_id), brandForQuestionnaire(i.questionnaire_id)]);
   const approved = i.status !== "awaiting_approval";
 
