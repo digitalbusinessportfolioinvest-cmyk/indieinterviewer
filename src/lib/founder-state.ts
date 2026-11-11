@@ -19,7 +19,7 @@ export type FounderState = {
 };
 
 // Rough minutes per question, used for the time estimate shown to the founder.
-const MINUTES: Record<string, number> = { public: 1.5, deep: 1, closing: 1 };
+const MINUTES: Record<string, number> = { public: 1, deep: 0.75, closing: 1 };
 
 export async function founderState(i: Interview): Promise<FounderState> {
   const [questions, messages, answers, uploads, brand] = await Promise.all([
