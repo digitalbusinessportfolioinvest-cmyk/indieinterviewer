@@ -4,6 +4,20 @@ export const newsletters = [
     name: "Indie Hustle",
     publisher: "Founders Courier",
     website: "https://indiehustle.co",
+    logo: "/brand/horizontal_color.svg",
+    senderName: "Indie Hustle",
+    replyTo: "the@indiehustle.co",
+    about: "a newsletter that publishes written interviews with founders of established, profitable online businesses",
+  },
+  {
+    slug: "founders-struggles",
+    name: "Founders Struggles",
+    publisher: "Founders Courier",
+    website: "https://foundersstruggles.com",
+    logo: "/brand/founders-struggles-logo-color.svg",
+    senderName: "Founders Struggles",
+    replyTo: "the@indiehustle.co",
+    about: "a newsletter that publishes written interviews with founders in the middle of the journey: projects still being built, not yet consolidated, where the interest is in real difficulties, open decisions and honest numbers",
   },
 ];
 
@@ -50,6 +64,52 @@ export const questionnaires = [
       { layer: "deep", section: "Strategic Outlook", prompt: "What would double the valuation?" },
 
       { layer: "closing", prompt: "Give one tactical move someone building today could implement this week.", helper: "No theory, something they can start on Monday." },
+    ],
+  },
+
+  {
+    newsletter: "founders-struggles",
+    version: "v1",
+    welcome:
+      "Welcome, and thanks for taking part in Founders Struggles. You'll receive the questions one at a time, and at the end you'll be able to review and edit all your answers. You can pause the interview at any time: everything you write is saved as you go, and you can pick up where you left off. If the system detects that an answer is short or incomplete, it may ask you to clarify or expand on it.",
+    deepDiveIntro:
+      "That's the end of the public interview. The next questions are for the newsletter's paid subscribers, where founders usually share (voluntarily) more complete information. This part is optional: you can skip any or all of the questions by replying \"skip\". That said, I really appreciate it when founders do answer, because it helps me give my most loyal readers more detailed information. When a founder doesn't answer these questions, I write an analysis instead, which is also sent to them for review before publication.",
+    closing:
+      "Thank you, that's the whole interview. If you'd like to add photos, logos or any other visual elements, you can upload them right here. Once you click Finish, if you answered the Deep Dive questions, you'll receive a copy of your interview for your approval in about 24 hours. If you skipped them, please allow us three or four days to include the analysis. Once you approve it, we'll send you the estimated publication date.",
+    rightsClause:
+      "By clicking Approve, you confirm that this interview reflects your answers and you assign to Founders Courier, publisher of Founders Struggles, all rights in this interview (including authorization to use your name, photo, logo and any images provided together with the interview). Founders Courier may publish, edit, adapt and reproduce it, in whole or in part, in its newsletter, website, social media and any other format, including compilations, reports and books, provided that it respects the integrity of the original message and does not manipulate or misrepresent it. You may republish your interview anywhere, as long as you credit Founders Struggles as the original source.",
+    questions: [
+      { layer: "public", prompt: "Who are you and what are you building?", helper: "Tell us as much as you like: who you are, what you do, what the business is and how you got here. Don't worry about order or polish, just tell it the way it comes to mind." },
+      { layer: "public", prompt: "Are you doing this alone? If so, what's the loneliest part?" },
+      { layer: "public", prompt: "Is this your first project? If not, what did previous attempts teach you?" },
+      { layer: "public", prompt: "What problem made you start this project?" },
+      { layer: "public", prompt: "What is one decision that materially changed the trajectory of your project?" },
+      { layer: "public", prompt: "What are you optimizing for right now?" },
+      { layer: "public", prompt: "How much time are you putting into this per week?" },
+      { layer: "public", prompt: "What specific challenges are you facing in the next 30–60 days?" },
+      { layer: "public", prompt: "What would have to be true in 12 months for you to consider this a success?" },
+      { layer: "public", prompt: "What mistake cost you the most, and why didn't you see it coming?" },
+      { layer: "public", prompt: "What kind of customers are not a good fit for you?" },
+      { layer: "public", prompt: "If this fails in 12 months, what will most likely be the reason?" },
+      { layer: "public", prompt: "Do you see AI as a risk, as an opportunity, or both? Please explain." },
+      { layer: "public", prompt: "Where can readers learn more about your project?" },
+
+      { layer: "deep", section: "Strategic", prompt: "What metric truly determines whether this works, beyond vanity metrics?" },
+      { layer: "deep", section: "Strategic", prompt: "Where is this project structurally fragile right now?" },
+      { layer: "deep", section: "Strategic", prompt: "What decision are you postponing, and why?" },
+      { layer: "deep", section: "Strategic", prompt: "If your revenue stopped for three months, what would you do first?" },
+      { layer: "deep", section: "Strategic", prompt: "What assumption about your business could turn out to be completely wrong?" },
+      { layer: "deep", section: "Strategic", prompt: "What important question about your business do most people fail to ask you?" },
+      { layer: "deep", section: "Financial", prompt: "What does your revenue look like right now? Give us the real numbers." },
+      { layer: "deep", section: "Financial", prompt: "Which is your main source of income?" },
+      { layer: "deep", section: "Financial", prompt: "How long can you keep going at the current burn rate?" },
+      { layer: "deep", section: "Financial", prompt: "What's your churn telling you, and are you listening?" },
+      { layer: "deep", section: "Financial", prompt: "How much money did you need to get started?" },
+      { layer: "deep", section: "Operational", prompt: "Walk us through your current customer acquisition: where do they come from and where do you lose them?" },
+      { layer: "deep", section: "Strategic Outlook", prompt: "Are you building this to keep, to sell, or you haven't decided yet? What's your timeline?" },
+      { layer: "deep", section: "Connection", prompt: "Are you open to hearing from our readers directly? If so, where can they follow you?" },
+
+      { layer: "closing", prompt: "Give one concrete, actionable plan someone building a project right now could implement this week." },
     ],
   },
 ];

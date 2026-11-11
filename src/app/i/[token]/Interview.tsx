@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Logo from "@/components/Logo";
 
 type State = {
+  newsletter: { name: string; logo: string };
   founderName: string;
   status: string;
   messages: { id: number; role: string; kind: string; content: string }[];
@@ -88,8 +89,8 @@ export default function Interview({ token }: { token: string }) {
   return (
     <main className={composerOpen ? "wrap has-composer" : "wrap"}>
       <div className="brand">
-        <Logo />
-        <span>Indie Hustle · Interview with {state.founderName}</span>
+        <Logo src={state.newsletter.logo} alt={state.newsletter.name} />
+        <span>{state.newsletter.name} · Interview with {state.founderName}</span>
       </div>
       {!finished && <div className="progress" aria-label={`${pct}% complete`}><div style={{ width: `${pct}%` }} /></div>}
 

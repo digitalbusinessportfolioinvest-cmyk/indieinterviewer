@@ -29,7 +29,7 @@ export async function createInterview(_prev: ActionResult | null, form: FormData
   const [row] = await sql`
     INSERT INTO interviews (token, approval_token, questionnaire_id, founder_name, founder_email, company, invited_at)
     VALUES (${randomToken(18)}, ${randomToken(18)}, ${qn.id}, ${founderName}, ${founderEmail}, ${company}, ${send ? new Date() : null})
-    RETURNING id, token, founder_name, founder_email`;
+    RETURNING *`;
   if (send) {
     const r = await sendInvitation(row as never);
     if (!r.ok) {

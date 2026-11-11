@@ -1,8 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
-export default function Logo({ href = "/" }: { href?: string }) {
+export default function Logo({ href = "/", src = "/brand/horizontal_color.svg", alt = "IndieInterviewer" }: { href?: string; src?: string; alt?: string }) {
   return (
-    <a href={href} className="logo" aria-label="IndieInterviewer">
-      <img src="/brand/horizontal_color.svg" alt="IndieInterviewer" width={240} height={38} />
+    <a href={href} className="logo" aria-label={alt}>
+      <img src={src} alt={alt} />
     </a>
   );
 }

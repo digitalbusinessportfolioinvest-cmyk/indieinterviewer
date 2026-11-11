@@ -41,7 +41,7 @@ function parseJson<T>(raw: string): T {
   return JSON.parse(raw.slice(start, end + 1)) as T;
 }
 
-const FOLLOWUP_SYSTEM = `You are the interviewer for Indie Hustle, a newsletter that publishes written interviews with founders of established, profitable online businesses. You are judging one answer in a written interview the founder fills in on their own.
+const followupSystem = (name: string, about: string) => `You are the interviewer for ${name}, ${about}. You are judging one answer in a written interview the founder fills in on their own.
 
 Decide whether the answer is too short or incomplete to be publishable for this question. Ask a follow-up only when the answer is clearly thin: a few words, evasive, missing the core of what was asked, or so vague a reader would learn nothing. A concise but complete answer does NOT need a follow-up. Never ask a follow-up just to get more of something the founder already covered well.
 
@@ -56,6 +56,7 @@ If a follow-up is needed, write it:
 Reply with JSON only, no other text: {"followup": true|false, "message": "the follow-up text, or empty string"}`;
 
 export async function judgeAnswer(input: {
+  newsletter: { name: string; about: string };
   layer: string;
   section: string | null;
   prompt: string;
@@ -72,7 +73,7 @@ export async function judgeAnswer(input: {
     `Founder's answer so far:\n"""\n${input.answer}\n"""`,
   ].filter(Boolean).join("\n\n");
   const raw = await chat(
-    [{ role: "system", content: FOLLOWUP_SYSTEM }, { role: "user", content: user }],
+    [{ role: "system", content: followupSystem(input.newsletter.name, input.newsletter.about) }, { role: "user", content: user }],
     { effort: "low", maxTokens: 1200, timeoutMs: 45_000 },
   );
   const out = parseJson<{ followup?: boolean; message?: string }>(raw);
@@ -80,7 +81,7 @@ export async function judgeAnswer(input: {
   return { followup: Boolean(out.followup) && message.length > 0, message };
 }
 
-const HEADINGS_SYSTEM = `You prepare written founder interviews for publication in the Indie Hustle newsletter.
+const headingsSystem = (name: string, about: string) => `You prepare written founder interviews for publication in ${name}, ${about}.
 
 The questionnaire is standard, but in each published interview the questions are reworded so they read naturally as a conversation with this specific founder, adapted to what they actually answered. You will receive every question with the founder's answer.
 
@@ -95,6 +96,7 @@ For each item, write a new heading: the question rephrased so it flows naturally
 Reply with JSON only: {"headings": [{"id": <item id>, "heading": "..."}]}`;
 
 export async function rewriteHeadings(input: {
+  newsletter: { name: string; about: string };
   founder: string;
   company: string | null;
   items: { id: number; prompt: string; answer: string }[];
@@ -108,7 +110,7 @@ export async function rewriteHeadings(input: {
     `Items:\n${JSON.stringify(input.items.map((i) => ({ id: i.id, question: i.prompt, answer: i.answer })), null, 1)}`,
   ].join("\n\n");
   const raw = await chat(
-    [{ role: "system", content: HEADINGS_SYSTEM }, { role: "user", content: user }],
+    [{ role: "system", content: headingsSystem(input.newsletter.name, input.newsletter.about) }, { role: "user", content: user }],
     { effort: "medium", maxTokens: 6000, timeoutMs: 180_000 },
   );
   const out = parseJson<{ headings?: { id: number; heading: string }[] }>(raw);

@@ -133,3 +133,9 @@ CREATE TABLE IF NOT EXISTS webauthn_challenges (
   email TEXT,
   expires_at TIMESTAMPTZ NOT NULL
 );
+
+-- Per-newsletter branding (added for multiple interview processes).
+ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS logo TEXT;
+ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS sender_name TEXT;
+ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS reply_to TEXT;
+ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS about TEXT;

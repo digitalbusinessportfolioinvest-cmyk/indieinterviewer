@@ -4,6 +4,7 @@ import { getQuestionnaire, type Interview } from "@/lib/interview";
 import ArticleView from "@/components/ArticleView";
 import ApproveForm from "./ApproveForm";
 import Logo from "@/components/Logo";
+import { brandForQuestionnaire } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,12 @@ export default async function ApprovePage({ params }: { params: Promise<{ token:
   const [row] = await db()`SELECT * FROM interviews WHERE approval_token = ${token}`;
   const i = row as unknown as Interview | undefined;
   if (!i || !i.draft || !["awaiting_approval", "approved", "scheduled"].includes(i.status)) notFound();
-  const qn = await getQuestionnaire(i.questionnaire_id);
+  const [qn, brand] = await Promise.all([getQuestionnaire(i.questionnaire_id), brandForQuestionnaire(i.questionnaire_id)]);
   const approved = i.status !== "awaiting_approval";
 
   return (
     <main className="wrap">
-      <div className="brand"><Logo /><span>Indie Hustle · Interview with {i.founder_name}</span></div>
+      <div className="brand"><Logo src={brand.logo} alt={brand.name} /><span>{brand.name} · Interview with {i.founder_name}</span></div>
       <div className="card">
         <p className="muted small">Please read your interview below. This is the version we will publish.</p>
         <ArticleView draft={i.draft} analysis={i.analysis} />

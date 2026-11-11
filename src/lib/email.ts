@@ -9,6 +9,8 @@ type SendArgs = {
   kind: string;
   interviewId?: number | null;
   idempotencyKey?: string;
+  from?: string;
+  replyTo?: string;
 };
 
 export async function sendEmail(args: SendArgs): Promise<{ ok: boolean; error?: string }> {
@@ -32,9 +34,9 @@ export async function sendEmail(args: SendArgs): Promise<{ ok: boolean; error?: 
         method: "POST",
         headers,
         body: JSON.stringify({
-          from: config.mailFrom(),
+          from: args.from ?? config.mailFrom(),
           to: recipients,
-          reply_to: config.replyTo(),
+          reply_to: args.replyTo ?? config.replyTo(),
           subject: args.subject,
           text: args.text,
           html: args.html,
@@ -70,14 +72,14 @@ function escapeHtml(s: string) {
 }
 
 /** Minimal, client-safe HTML layout. Paragraphs are separated by blank lines. */
-export function layout(paragraphs: string[], button?: { label: string; url: string }) {
+export function layout(paragraphs: string[], button?: { label: string; url: string }, headerName = "Indie Hustle") {
   const body = paragraphs
     .map((p) => `<p style="margin:0 0 16px;line-height:1.55">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
     .join("");
   const cta = button
     ? `<p style="margin:24px 0"><a href="${escapeHtml(button.url)}" style="background:#111;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;display:inline-block">${escapeHtml(button.label)}</a></p><p style="margin:0 0 16px;font-size:13px;color:#666;line-height:1.5">Or paste this link into your browser:<br>${escapeHtml(button.url)}</p>`
     : "";
-  return `<!doctype html><html><body style="margin:0;background:#f6f6f4"><div style="max-width:560px;margin:0 auto;padding:32px 24px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:16px;color:#1a1a1a"><div style="font-weight:700;font-size:18px;margin-bottom:24px">Indie Hustle</div>${body}${cta}</div></body></html>`;
+  return `<!doctype html><html><body style="margin:0;background:#f6f6f4"><div style="max-width:560px;margin:0 auto;padding:32px 24px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:16px;color:#1a1a1a"><div style="font-weight:700;font-size:18px;margin-bottom:24px">${escapeHtml(headerName)}</div>${body}${cta}</div></body></html>`;
 }
 
 export function textWithLink(paragraphs: string[], button?: { label: string; url: string }) {

@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { judgeAnswer, rewriteHeadings } from "./llm";
 import { sendCompletedToAdmins } from "./emails";
+import { brandForQuestionnaire } from "./brand";
 
 export type Interview = {
   id: number;
@@ -163,7 +164,9 @@ export async function submitAnswer(token: string, rawText: string): Promise<Subm
 
   if (ans.followups_used < 2) {
     try {
+      const b = await brandForQuestionnaire(i.questionnaire_id);
       const verdict = await judgeAnswer({
+        newsletter: { name: b.name, about: b.about },
         layer: q.layer,
         section: q.section,
         prompt: q.prompt,
@@ -253,15 +256,20 @@ export async function generateDraft(interviewId: number) {
 
   let rewritten = false;
   try {
+    const b = await brandForQuestionnaire(i.questionnaire_id);
     const recent = await sql`
-      SELECT draft FROM interviews WHERE id <> ${interviewId} AND draft IS NOT NULL
-      ORDER BY completed_at DESC NULLS LAST LIMIT 8`;
+      SELECT i.draft FROM interviews i
+      JOIN questionnaires q ON q.id = i.questionnaire_id
+      WHERE i.id <> ${interviewId} AND i.draft IS NOT NULL
+        AND q.newsletter_id = (SELECT newsletter_id FROM questionnaires WHERE id = ${i.questionnaire_id})
+      ORDER BY i.completed_at DESC NULLS LAST LIMIT 8`;
     const recentHeadings: string[] = [];
     for (const r of recent) {
       const d = r.draft as Draft;
       for (const it of d?.items ?? []) if (it.heading !== it.original) recentHeadings.push(it.heading);
     }
     const map = await rewriteHeadings({
+      newsletter: { name: b.name, about: b.about },
       founder: i.founder_name,
       company: i.company,
       items: items.map((it) => ({ id: it.questionId, prompt: it.original, answer: it.answer })),
