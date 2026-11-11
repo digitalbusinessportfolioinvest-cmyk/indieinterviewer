@@ -67,19 +67,19 @@ export async function sendEmail(args: SendArgs): Promise<{ ok: boolean; error?: 
   return { ok: false, error: lastError };
 }
 
-function escapeHtml(s: string) {
+export function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
 /** Minimal, client-safe HTML layout. Paragraphs are separated by blank lines. */
-export function layout(paragraphs: string[], button?: { label: string; url: string }, headerName = "Indie Hustle") {
+export function layout(paragraphs: string[], button?: { label: string; url: string }, headerName = "Indie Hustle", extraHtml = "") {
   const body = paragraphs
     .map((p) => `<p style="margin:0 0 16px;line-height:1.55">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
     .join("");
   const cta = button
     ? `<p style="margin:24px 0"><a href="${escapeHtml(button.url)}" style="background:#111;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;display:inline-block">${escapeHtml(button.label)}</a></p><p style="margin:0 0 16px;font-size:13px;color:#666;line-height:1.5">Or paste this link into your browser:<br>${escapeHtml(button.url)}</p>`
     : "";
-  return `<!doctype html><html><body style="margin:0;background:#f6f6f4"><div style="max-width:560px;margin:0 auto;padding:32px 24px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:16px;color:#1a1a1a"><div style="font-weight:700;font-size:18px;margin-bottom:24px">${escapeHtml(headerName)}</div>${body}${cta}</div></body></html>`;
+  return `<!doctype html><html><body style="margin:0;background:#f6f6f4"><div style="max-width:560px;margin:0 auto;padding:32px 24px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:16px;color:#1a1a1a"><div style="font-weight:700;font-size:18px;margin-bottom:24px">${escapeHtml(headerName)}</div>${body}${cta}${extraHtml}</div></body></html>`;
 }
 
 export function textWithLink(paragraphs: string[], button?: { label: string; url: string }) {

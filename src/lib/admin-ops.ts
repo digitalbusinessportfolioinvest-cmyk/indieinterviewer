@@ -83,7 +83,7 @@ export async function sendForApprovalOp(id: number): Promise<OpResult> {
   }
   const r = await sendApprovalRequest(i);
   if (!r.ok) return { ok: false, message: `Email failed: ${r.error}` };
-  await db()`UPDATE interviews SET status = 'awaiting_approval', sent_for_approval_at = now(), updated_at = now() WHERE id = ${id}`;
+  await db()`UPDATE interviews SET status = 'awaiting_approval', sent_for_approval_at = now(), review_token = NULL, updated_at = now() WHERE id = ${id}`;
   return { ok: true, message: "Sent to the founder for approval." };
 }
 

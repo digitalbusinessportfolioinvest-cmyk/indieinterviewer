@@ -160,3 +160,6 @@ ALTER TABLE interviews ADD CONSTRAINT interviews_status_check
 ALTER TABLE uploads ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'founder';
 ALTER TABLE interviews ADD COLUMN IF NOT EXISTS homepage_url TEXT;
 ALTER TABLE interviews ADD COLUMN IF NOT EXISTS screenshot_error TEXT;
+
+-- One-click "approve and send to founder" link emailed to the admins with the draft.
+ALTER TABLE interviews ADD COLUMN IF NOT EXISTS review_token TEXT;

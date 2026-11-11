@@ -39,6 +39,12 @@ export async function signedGetUrl(key: string, filename: string) {
   );
 }
 
+export async function getObjectBytes(key: string): Promise<{ body: Uint8Array; contentType: string }> {
+  const out = await s3().send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }));
+  const body = await out.Body!.transformToByteArray();
+  return { body, contentType: out.ContentType || "application/octet-stream" };
+}
+
 export async function deleteObjects(keys: string[]) {
   for (let i = 0; i < keys.length; i += 1000) {
     const chunk = keys.slice(i, i + 1000);

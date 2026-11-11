@@ -20,7 +20,7 @@ export default async function ApprovePage({ params }: { params: Promise<{ token:
     <main className="wrap">
       <div className="brand"><Logo src={brand.logo} alt={brand.name} /><span>{brand.name} · Interview with {i.founder_name}</span></div>
       <div className="card">
-        <p className="muted small">Please read your interview below. This is the version we will publish.</p>
+        <p className="muted small">Please read the text of your interview below. The published edition will also include a cover image (a screenshot of your homepage) and the photos you sent us.</p>
         <ArticleView draft={i.draft} analysis={i.analysis} />
       </div>
       <div className="card">

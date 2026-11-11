@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { judgeAnswer, rewriteHeadings, translateAnswers } from "./llm";
-import { sendCompletedToAdmins } from "./emails";
+import { sendCompletedToAdmins, sendDraftForReview } from "./emails";
+import { randomToken } from "./tokens";
 import { brandForQuestionnaire } from "./brand";
 import { takeHomepageScreenshot } from "./screenshot";
 import { config } from "./config";
@@ -25,6 +26,7 @@ export type Interview = {
   approved_at: Date | null;
   published_at: Date | null;
   homepage_url: string | null;
+  review_token: string | null;
   screenshot_error: string | null;
   publication_date: string | null;
   completed_at: Date | null;
@@ -252,7 +254,6 @@ export async function finishInterview(token: string): Promise<SubmitResult> {
   if (!row) return { ok: true };
   void generateDraft(i.id);
   void takeHomepageScreenshot(i.id).catch((err) => console.error("[screenshot]", err));
-  void sendCompletedToAdmins(row as unknown as Interview).catch(() => {});
   return { ok: true };
 }
 
@@ -319,4 +320,26 @@ export async function generateDraft(interviewId: number) {
     UPDATE interviews SET draft = ${sql.json(draft as never)}, draft_status = ${rewritten ? "ready" : "failed"},
       status = CASE WHEN status = 'completed' THEN 'in_review' ELSE status END, updated_at = now()
     WHERE id = ${interviewId}`;
+
+  // Email the draft to the admins with a one-click approve link (replaces the plain "finished" notice).
+  try {
+    // Give the homepage screenshot (taken in parallel) up to a minute so the edition has its cover.
+    for (let t = 0; t < 12; t++) {
+      const [s] = await sql`
+        SELECT (SELECT count(*) FROM uploads WHERE interview_id = ${interviewId} AND kind = 'screenshot')::int AS shots, screenshot_error
+        FROM interviews WHERE id = ${interviewId}`;
+      if (!s || s.shots > 0 || s.screenshot_error) break;
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+    const fresh = await getInterviewById(interviewId);
+    if (fresh?.draft && ["in_review", "completed"].includes(fresh.status)) {
+      const reviewToken = randomToken(18);
+      await sql`UPDATE interviews SET review_token = ${reviewToken} WHERE id = ${interviewId}`;
+      await sendDraftForReview({ ...fresh, review_token: reviewToken, draft: fresh.draft });
+    } else if (fresh && !fresh.draft) {
+      await sendCompletedToAdmins(fresh);
+    }
+  } catch (err) {
+    console.error("[draft] review email failed:", err instanceof Error ? err.message : err);
+  }
 }

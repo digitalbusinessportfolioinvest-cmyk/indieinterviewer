@@ -1,4 +1,6 @@
-import { layout, sendEmail, textWithLink } from "./email";
+import { escapeHtml, layout, sendEmail, textWithLink } from "./email";
+import type { Draft } from "./interview";
+import { buildEdition, type Edition } from "./edition";
 import { config } from "./config";
 import { brandForQuestionnaire, fromHeader, type Brand } from "./brand";
 
@@ -54,7 +56,8 @@ export async function sendApprovalRequest(i: WithQn & { founder_name: string; fo
   const url = `${config.appUrl()}/approve/${i.approval_token}`;
   return send("approval_request", i.founder_email, `Your ${b.name} interview is ready for your approval`, [
     `Hi ${i.founder_name},`,
-    "Your interview is ready. Please read it on the page below and, if everything reflects your answers, approve it there.",
+    "The text of your interview is ready. Please read it on the page below and, if everything reflects your answers, approve it there.",
+    "Please note that this is the text only. The published edition will also include a cover image (a screenshot of your homepage) and the photos you sent us.",
     "If anything needs changing, just reply to this email and tell us what.",
   ], { label: "Read and approve", url }, i.id, undefined, b);
 }
@@ -75,4 +78,57 @@ export async function sendPublicationDate(i: WithQn & { founder_name: string; fo
     `Thanks for approving your interview. It is scheduled to be published in ${b.name} on ${dateLabel}.`,
     "We'll let you know if anything changes.",
   ], undefined, i.id, undefined, b);
+}
+
+function editionHtml(e: Edition) {
+  const img = (u: string, alt: string) => `<img src="${escapeHtml(u)}" alt="${escapeHtml(alt)}" style="display:block;width:100%;max-width:560px;height:auto;border:1px solid #ddd;border-radius:6px;margin:18px 0">`;
+  let html = e.cover ? img(e.cover.url, "Cover: homepage screenshot") : `<p style="color:#a3271c;font-size:14px">No cover yet (homepage screenshot missing).</p>`;
+  for (const bl of e.blocks) {
+    if (bl.type === "section") html += `<div style="margin:28px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#666">${escapeHtml(bl.label)}</div>`;
+    else if (bl.type === "image") html += img(bl.image.url, bl.image.filename);
+    else html += `<h3 style="font-size:16px;margin:22px 0 6px">${escapeHtml(bl.heading)}</h3><p style="margin:0;line-height:1.55;white-space:pre-wrap">${escapeHtml(bl.answer.trim())}</p>`;
+  }
+  return `<div style="border-top:1px solid #ddd;margin-top:28px;padding-top:4px">${html}</div>`;
+}
+
+function editionText(e: Edition) {
+  const parts: string[] = [e.cover ? `[Cover: ${e.cover.url}]` : "[No cover yet]"];
+  for (const bl of e.blocks) {
+    if (bl.type === "section") parts.push(bl.label.toUpperCase());
+    else if (bl.type === "image") parts.push(`[Image: ${bl.image.url}]`);
+    else parts.push(`${bl.heading}\n${bl.answer.trim()}`);
+  }
+  return parts.join("\n\n");
+}
+
+/** Sends the finished draft to the admins with a one-click link to approve it and send it to the founder. */
+export async function sendDraftForReview(i: WithQn & {
+  founder_name: string; company: string | null; deep_skipped_count: number;
+  draft: Draft; analysis: string | null; review_token: string; homepage_url: string | null;
+}) {
+  const b = await brandForQuestionnaire(i.questionnaire_id);
+  const panel = `${config.appUrl()}/admin/interviews/${i.id}`;
+  const needsAnalysis = i.deep_skipped_count > 0 && !i.analysis?.trim();
+  const translated = i.draft.items.filter((it) => it.sourceMode === "translated").length;
+  const corrected = i.draft.items.filter((it) => it.sourceMode === "corrected").length;
+  const paragraphs = [
+    `${i.founder_name}${i.company ? ` (${i.company})` : ""} has finished the ${b.name} interview. Below is the assembled edition: cover, rewritten headings, the answers cleaned up and the founder's images placed in the text.`,
+    ...(translated || corrected ? [`${translated ? `${translated} answer(s) were translated into English` : ""}${translated && corrected ? " and " : ""}${corrected ? `${corrected} had typos corrected` : ""}. The originals are in the panel.`] : []),
+    needsAnalysis
+      ? `The founder skipped ${i.deep_skipped_count} Deep Dive question(s), so it needs your analysis before it can go to the founder. Write it in the panel and send it from there.`
+      : "If it's good to go, approve it with the button and it will be sent to the founder for their approval. To change anything first, edit it in the panel.",
+  ];
+  const edition = await buildEdition(i.id, i.draft, i.analysis);
+  const button = needsAnalysis
+    ? { label: "Open in the panel", url: panel }
+    : { label: "Approve and send to founder", url: `${config.appUrl()}/review/${i.review_token}` };
+  const extra = `${needsAnalysis ? "" : `<p style="margin:0 0 8px;font-size:14px"><a href="${escapeHtml(panel)}" style="color:#333">Edit in the panel</a></p>`}${editionHtml(edition)}`;
+  return sendEmail({
+    kind: "draft_review",
+    to: config.adminEmails(),
+    subject: `Review: ${i.founder_name}${i.company ? ` (${i.company})` : ""} · ${b.name}`,
+    text: `${textWithLink(paragraphs, button)}\n\nPanel: ${panel}\n\n---\n\n${editionText(edition)}`,
+    html: layout(paragraphs, button, "IndieInterviewer", extra),
+    interviewId: i.id,
+  });
 }
