@@ -9,6 +9,8 @@ type State = {
   status: string;
   messages: { id: number; role: string; kind: string; content: string }[];
   atClosing: boolean;
+  closingStep: "photo" | "review_ask" | "review";
+  deepSkipped: number;
   openQuestion: { id: number; layer: string } | null;
   progress: {
     answered: number; total: number; layer: string;
@@ -98,21 +100,40 @@ export default function Interview({ token }: { token: string }) {
       {!finished && <Progress p={state.progress} atClosing={state.atClosing} />}
 
       <div className="chat">
-        {state.messages.map((m) => (
-          <div key={m.id} className={`bubble ${m.role}`}>{m.content}</div>
-        ))}
+        {state.messages.map((m) =>
+          m.kind === "deep_intro" ? (
+            <div key={m.id} className="section-break">
+              <div className="section-break-title">Deep Dive · Optional</div>
+              <div className="section-break-sub">The public interview is done. Reply &quot;skip&quot; to any question you&apos;d rather not answer.</div>
+              <div className="bubble interviewer">{m.content}</div>
+            </div>
+          ) : (
+            <div key={m.id} className={`bubble ${m.role}`}>{m.content}</div>
+          ),
+        )}
         {busy && !state.atClosing && <div className="typing">…</div>}
-        {!finished && state.atClosing && <ChatUpload token={token} state={state} setState={setState} />}
+        {!finished && state.atClosing && state.closingStep === "photo" && (
+          <ChatUpload token={token} state={state} setState={setState} onNext={(skip) => post("step", { action: skip ? "photo_skip" : "photo_done" })} busy={busy} />
+        )}
+        {!finished && state.atClosing && state.closingStep === "review_ask" && (
+          <div className="choice-row">
+            <button onClick={() => post("step", { action: "review" })} disabled={busy}>Review my answers</button>
+            <button className="secondary" onClick={() => post("finish")} disabled={busy}>{busy ? "Sending…" : "Send it as it is"}</button>
+          </div>
+        )}
       </div>
 
       {finished && (
         <div className="card" style={{ marginTop: 24 }}>
           <h2>Thank you</h2>
-          <p>Your interview has been submitted. We'll email you a copy to approve.</p>
+          <p>Your interview has been submitted.</p>
+          <p>{state.deepSkipped > 0
+            ? "Since you skipped some Deep Dive questions, please allow us three or four days to include the analysis. Then we'll email you the full edition for your approval."
+            : "You'll receive the full edition by email for your approval in about 24 hours."} Once you approve it, we&apos;ll send you the estimated publication date.</p>
         </div>
       )}
 
-      {!finished && state.atClosing && <Review state={state} post={post} busy={busy} />}
+      {!finished && state.atClosing && state.closingStep === "review" && <Review state={state} post={post} busy={busy} />}
 
       <div ref={bottom} />
 
@@ -196,7 +217,7 @@ function Review({ state, post, busy }: {
   );
 }
 
-function ChatUpload({ token, state, setState }: { token: string; state: State; setState: (s: State) => void }) {
+function ChatUpload({ token, state, setState, onNext, busy }: { token: string; state: State; setState: (s: State) => void; onNext: (skip: boolean) => void; busy: boolean }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
@@ -228,6 +249,11 @@ function ChatUpload({ token, state, setState }: { token: string; state: State; s
         </ul>
       )}
       {uploadError && <p className="error">{uploadError}</p>}
+      <div className="row" style={{ marginTop: 12 }}>
+        {state.uploads.length > 0
+          ? <button onClick={() => onNext(false)} disabled={busy || uploading}>Continue</button>
+          : <button className="secondary" onClick={() => onNext(true)} disabled={busy || uploading}>No photo, thanks</button>}
+      </div>
     </div>
   );
 }
@@ -239,7 +265,7 @@ function Progress({ p, atClosing }: { p: State["progress"]; atClosing: boolean }
   const fmt = (m: number) => (m <= 0 ? "done" : m <= 5 ? `about ${m} min` : `about ${Math.ceil(m / 5) * 5} min`);
   const left = main.minutesLeft + deep.minutesLeft;
   let note: string;
-  if (atClosing) note = "All questions answered. Add your photo, review and click Finish.";
+  if (atClosing) note = "All questions answered. Almost done.";
   else if (deep.minutesLeft > 0 && p.layer !== "deep") note = `${fmt(left)} left in total, ${fmt(main.minutesLeft)} without the optional Deep Dive.`;
   else note = `${fmt(left)} left.`;
   return (

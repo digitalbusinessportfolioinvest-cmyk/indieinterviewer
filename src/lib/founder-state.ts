@@ -8,6 +8,8 @@ export type FounderState = {
   status: string;
   messages: { id: number; role: string; kind: string; content: string }[];
   atClosing: boolean;
+  closingStep: "photo" | "review_ask" | "review";
+  deepSkipped: number;
   openQuestion: { id: number; layer: string } | null;
   progress: {
     answered: number; total: number; layer: string;
@@ -44,6 +46,8 @@ export async function founderState(i: Interview): Promise<FounderState> {
     status: i.status,
     messages: messages.map((m) => ({ id: m.id, role: m.role, kind: m.kind, content: m.content })),
     atClosing,
+    closingStep: i.closing_step ?? "photo",
+    deepSkipped: i.deep_skipped_count,
     openQuestion: open ? { id: open.id, layer: open.layer } : null,
     progress: { answered: answeredCount, total: questions.length, layer: open?.layer ?? "done", main: seg(["public", "closing"]), deep: seg(["deep"]) },
     review: atClosing

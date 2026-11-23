@@ -67,7 +67,7 @@ const followupSystem = (name: string, about: string) => `You are the interviewer
 
 Decide whether the answer is too short or incomplete to be publishable for this question. Ask a follow-up only when the answer is clearly thin: a few words, evasive, missing the core of what was asked, or so vague a reader would learn nothing. A concise but complete answer does NOT need a follow-up. Never ask a follow-up just to get more of something the founder already covered well.
 
-Rules for Deep Dive questions: the founder shares only what they are comfortable with, and numbers are always optional. Never push for figures they chose not to give. Only follow up on a Deep Dive answer if it is nearly empty and gives no usable information at all.
+Rules for Deep Dive questions: judge them with the same standard as the public interview and follow up when an answer is thin, vague or a bare list with no explanation. The founder shares only what they are comfortable with and numbers are always optional: ask for context, reasons or examples, never insist on figures they chose not to give, and never follow up on an answer that is just "skip".
 
 If a follow-up is needed, write it:
 - In English, addressed to the founder directly, one or two sentences.

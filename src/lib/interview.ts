@@ -27,6 +27,7 @@ export type Interview = {
   published_at: Date | null;
   homepage_url: string | null;
   review_token: string | null;
+  closing_step: "photo" | "review_ask" | "review";
   screenshot_error: string | null;
   publication_date: string | null;
   completed_at: Date | null;
@@ -242,6 +243,29 @@ export async function editAnswer(token: string, questionId: number, rawText: str
   if (wasSkipped !== skipped) {
     await sql`UPDATE interviews SET deep_skipped_count = GREATEST(0, deep_skipped_count + ${skipped ? 1 : -1}) WHERE id = ${i.id}`;
   }
+  return { ok: true };
+}
+
+const REVIEW_ASK = "Would you like to review your answers before sending the interview? You can read them all and edit anything you want.";
+
+/** Moves the founder through the closing steps: photo, then the review question, then (optionally) the review screen. */
+export async function closingStep(token: string, action: "photo_done" | "photo_skip" | "review"): Promise<SubmitResult> {
+  const sql = db();
+  const i = await getInterviewByToken(token);
+  if (!i) return { ok: false, error: "Interview not found." };
+  const questions = await getQuestions(i.questionnaire_id);
+  const last = questions[questions.length - 1];
+  if (i.status !== "in_progress" || !last || i.current_position <= last.position) return { ok: false, error: "Please answer all the questions first." };
+  if (action === "review") {
+    if (i.closing_step !== "review_ask") return { ok: true };
+    await addMessage(i.id, "founder", "note", "I'd like to review my answers.");
+    await sql`UPDATE interviews SET closing_step = 'review', updated_at = now() WHERE id = ${i.id}`;
+    return { ok: true };
+  }
+  if (i.closing_step !== "photo") return { ok: true };
+  await addMessage(i.id, "founder", "note", action === "photo_done" ? "Done with the images." : "No photo, thanks.");
+  await addMessage(i.id, "interviewer", "note", REVIEW_ASK);
+  await sql`UPDATE interviews SET closing_step = 'review_ask', updated_at = now() WHERE id = ${i.id}`;
   return { ok: true };
 }
 
