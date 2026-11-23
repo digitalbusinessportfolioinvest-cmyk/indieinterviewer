@@ -164,4 +164,5 @@ ALTER TABLE interviews ADD COLUMN IF NOT EXISTS screenshot_error TEXT;
 -- One-click "approve and send to founder" link emailed to the admins with the draft.
 ALTER TABLE interviews ADD COLUMN IF NOT EXISTS review_token TEXT;
 -- Closing steps after the last question: photo -> review_ask -> review.
+ALTER TABLE interviews ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ;
 ALTER TABLE interviews ADD COLUMN IF NOT EXISTS closing_step TEXT NOT NULL DEFAULT 'photo';

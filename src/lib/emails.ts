@@ -38,6 +38,16 @@ export async function sendInvitation(i: WithQn & { founder_name: string; founder
   ], { label: "Start the interview", url }, i.id, `invite-${i.id}-${i.token.slice(0, 8)}`, b);
 }
 
+export async function sendReminder(i: WithQn & { founder_name: string; founder_email: string; token: string }, answered: number, total: number) {
+  const b = await brandForQuestionnaire(i.questionnaire_id);
+  const url = `${config.appUrl()}/i/${i.token}`;
+  return send("reminder", i.founder_email, `Your ${b.name} interview is waiting for you`, [
+    `Hi ${i.founder_name},`,
+    `Just a friendly reminder: your ${b.name} interview is waiting where you left it. You've answered ${answered} of ${total} questions, and everything you wrote is saved.`,
+    "Whenever you have a moment, you can pick it up with the same link.",
+  ], { label: "Continue the interview", url }, i.id, `reminder-${i.id}`, b);
+}
+
 export async function sendCompletedToAdmins(i: WithQn & { founder_name: string; company: string | null; deep_skipped_count: number }) {
   const b = await brandForQuestionnaire(i.questionnaire_id);
   const url = `${config.appUrl()}/admin/interviews/${i.id}`;
