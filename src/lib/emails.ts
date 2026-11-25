@@ -72,7 +72,9 @@ export async function sendApprovalRequest(i: WithQn & { founder_name: string; fo
     "If anything needs changing, just reply to this email and tell us what.",
   ];
   const est = await estimatePublication(i.id).catch(() => null);
-  if (est) paragraphs.splice(2, 0, `Estimated publication: between ${formatDay(est.from)} and ${formatDay(est.to)}. We'll confirm the exact date once you approve.`);
+  if (est) paragraphs.splice(2, 0, est.from === est.to
+    ? `Planned publication: ${formatDay(est.from)}.`
+    : `Estimated publication: between ${formatDay(est.from)} and ${formatDay(est.to)}. We'll confirm the exact date once you approve.`);
   const button = { label: "Read and approve", url };
   if (!i.draft) return send("approval_request", i.founder_email, `Your ${b.name} interview is ready for your approval`, paragraphs, button, i.id, undefined, b);
   const edition = await buildEdition(i.id, i.draft, i.analysis);
@@ -208,7 +210,9 @@ export async function sendDraftForReview(i: WithQn & {
       : "If it's good to go, approve it with the button and it will be sent to the founder for their approval. To change anything first, edit it in the panel.",
   ];
   const est = await estimatePublication(i.id).catch(() => null);
-  if (est) paragraphs.push(`Estimated publication: ${formatDay(est.from)} (next free slot), with a margin up to ${formatDay(est.to)}.`);
+  if (est) paragraphs.push(est.from === est.to
+    ? `Publication date already set: ${formatDay(est.from)}.`
+    : `Estimated publication: ${formatDay(est.from)} (next free slot), with a margin up to ${formatDay(est.to)}.`);
   const edition = await buildEdition(i.id, i.draft, i.analysis);
   const button = needsAnalysis
     ? { label: "Open in the panel", url: panel }

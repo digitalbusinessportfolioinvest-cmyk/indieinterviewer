@@ -21,10 +21,15 @@ export async function estimatePublication(interviewId: number): Promise<{ from: 
     JOIN questionnaires q ON q.id = i.questionnaire_id JOIN newsletters n ON n.id = q.newsletter_id
     WHERE i.id = ${interviewId}`;
   if (!n || n.publish_weekday === null) return null;
+  const [own] = await sql`SELECT publication_date FROM interviews WHERE id = ${interviewId}`;
+  if (own?.publication_date) {
+    const d = String(own.publication_date instanceof Date ? iso(own.publication_date) : own.publication_date).slice(0, 10);
+    return { from: d, to: d };
+  }
   const taken = new Set(
     (await sql`
       SELECT i.publication_date FROM interviews i JOIN questionnaires q ON q.id = i.questionnaire_id
-      WHERE q.newsletter_id = ${n.id} AND i.publication_date IS NOT NULL AND i.status IN ('scheduled', 'published')`)
+      WHERE q.newsletter_id = ${n.id} AND i.publication_date IS NOT NULL`)
       .map((r) => String(r.publication_date instanceof Date ? iso(r.publication_date) : r.publication_date).slice(0, 10)),
   );
   const waiting = await sql`
