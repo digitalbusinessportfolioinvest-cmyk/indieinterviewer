@@ -4,7 +4,8 @@ import { db } from "./db";
 import { config } from "./config";
 import { randomToken } from "./tokens";
 import { generateDraft, getInterviewById, type Draft } from "./interview";
-import { deleteObjects } from "./storage";
+import { deleteObjects, MAX_UPLOAD_BYTES, putObject, sniffImage } from "./storage";
+import type { Intro } from "./llm";
 import { sendApprovalRequest, sendInvitation, sendPublicationDate } from "./emails";
 
 export type OpResult = { ok: boolean; message: string; id?: number };
@@ -152,4 +153,51 @@ export function interviewLinks(i: { token: string; approval_token: string; id: n
     approvalLink: `${config.appUrl()}/approve/${i.approval_token}`,
     adminLink: `${config.appUrl()}/admin/interviews/${i.id}`,
   };
+}
+
+
+/** Edits the intro: chosen title and subtitle, hook, snapshot, bullets, teaser, pull quote. */
+export async function saveIntroOp(id: number, patch: Partial<Pick<Intro, "title" | "subtitle" | "hook" | "snapshot" | "teaser" | "pullQuote">> & { bullets?: string[] }): Promise<OpResult> {
+  const i = await getInterviewById(id);
+  if (!i || !i.draft) return { ok: false, message: "There is no draft yet." };
+  if (["approved", "scheduled", "published"].includes(i.status)) return { ok: false, message: "This interview is already approved and can't be edited." };
+  const cur: Intro = i.draft.intro ?? { titles: [], title: "", subtitle: "", hook: "", bullets: [] };
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : undefined);
+  const next: Intro = {
+    ...cur,
+    title: str(patch.title) ?? cur.title,
+    subtitle: str(patch.subtitle) ?? cur.subtitle,
+    hook: str(patch.hook) ?? cur.hook,
+    snapshot: patch.snapshot !== undefined ? str(patch.snapshot) || undefined : cur.snapshot,
+    teaser: patch.teaser !== undefined ? str(patch.teaser) || undefined : cur.teaser,
+    pullQuote: patch.pullQuote !== undefined ? str(patch.pullQuote) || undefined : cur.pullQuote,
+    bullets: patch.bullets ? cur.bullets.map((b, k) => ({ ...b, text: String(patch.bullets![k] ?? b.text).trim() })) : cur.bullets,
+  };
+  if (!next.title) return { ok: false, message: "The title can't be empty." };
+  const draft: Draft = { ...i.draft, intro: next };
+  const sql = db();
+  await sql`UPDATE interviews SET draft = ${sql.json(draft as never)}, updated_at = now() WHERE id = ${id}`;
+  return { ok: true, message: "Intro saved." };
+}
+
+export async function resolveChangeRequestOp(id: number, requestId: number): Promise<OpResult> {
+  const [r] = await db()`UPDATE change_requests SET resolved_at = now() WHERE id = ${requestId} AND interview_id = ${id} RETURNING id`;
+  return r ? { ok: true, message: "Marked as done." } : { ok: false, message: "Request not found." };
+}
+
+/** An image the founder sent by email, added by an admin; it goes into the edition like the founder's own. */
+export async function addAdminImageOp(id: number, file: { name: string; bytes: Uint8Array; size: number }): Promise<OpResult> {
+  const i = await getInterviewById(id);
+  if (!i) return { ok: false, message: "Not found." };
+  if (["approved", "scheduled", "published"].includes(i.status)) return { ok: false, message: "This interview is already approved." };
+  if (file.size > MAX_UPLOAD_BYTES) return { ok: false, message: "Images can be up to 10 MB." };
+  const type = sniffImage(file.bytes);
+  if (!type) return { ok: false, message: "That file isn't a PNG, JPG, WebP or GIF image." };
+  const [{ n }] = await db()`SELECT count(*)::int AS n FROM uploads WHERE interview_id = ${id} AND kind = 'founder'`;
+  if (n >= 20) return { ok: false, message: "This interview already has 20 images." };
+  const safeName = file.name.replace(/[^\w.\- ]+/g, "_").slice(-120) || "image";
+  const key = `interviews/${id}/${randomToken(8)}-${safeName}`;
+  await putObject(key, file.bytes, type);
+  await db()`INSERT INTO uploads (interview_id, object_key, filename, content_type, size_bytes) VALUES (${id}, ${key}, ${safeName}, ${type}, ${file.size})`;
+  return { ok: true, message: "Image added." };
 }

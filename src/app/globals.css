@@ -100,3 +100,8 @@ th { color: var(--muted); font-weight: 600; }
 .section-break-title { font-weight: 700; font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: var(--coral); }
 .section-break-sub { color: var(--ink); font-size: 15px; margin: 4px 0 12px; }
 .choice-row { display: flex; gap: 10px; flex-wrap: wrap; align-self: flex-end; }
+.edition-head h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+.edition-sub { font-size: 17px; color: var(--muted); margin: 0 0 8px; }
+.edition-intro p { margin: 0 0 10px; }
+.link-btn { background: none; border: none; padding: 0; color: var(--accent, #55799b); text-decoration: underline; cursor: pointer; }
+.change-box { margin: 8px 0 4px; display: grid; gap: 8px; }

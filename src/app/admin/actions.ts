@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import {
-  savePhotoPlacementOp,
+  savePhotoPlacementOp, saveIntroOp, resolveChangeRequestOp, addAdminImageOp,
   createInterviewOp, deleteInterviewOp, regenerateDraftOp, resendInvitationOp, saveReviewOp,
   sendForApprovalOp, setPublicationDateOp, setPublishedOp,
 } from "@/lib/admin-ops";
@@ -87,6 +87,29 @@ export async function deleteInterview(id: number): Promise<ActionResult> {
 export async function retakeScreenshot(id: number, url: string): Promise<ActionResult> {
   await requireAdmin();
   const r = await takeHomepageScreenshot(id, url || null);
+  revalidatePath(`/admin/interviews/${id}`);
+  return r;
+}
+
+export async function saveIntro(id: number, patch: Parameters<typeof saveIntroOp>[1]): Promise<ActionResult> {
+  await requireAdmin();
+  const r = await saveIntroOp(id, patch);
+  revalidatePath(`/admin/interviews/${id}`);
+  return r;
+}
+
+export async function resolveChangeRequest(id: number, requestId: number): Promise<ActionResult> {
+  await requireAdmin();
+  const r = await resolveChangeRequestOp(id, requestId);
+  revalidatePath(`/admin/interviews/${id}`);
+  return r;
+}
+
+export async function addAdminImage(id: number, form: FormData): Promise<ActionResult> {
+  await requireAdmin();
+  const file = form.get("file");
+  if (!(file instanceof File)) return { ok: false, message: "No file received." };
+  const r = await addAdminImageOp(id, { name: file.name, size: file.size, bytes: new Uint8Array(await file.arrayBuffer()) });
   revalidatePath(`/admin/interviews/${id}`);
   return r;
 }

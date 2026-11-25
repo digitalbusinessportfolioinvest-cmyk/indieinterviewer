@@ -1,7 +1,9 @@
 import { db } from "./db";
-import { judgeAnswer, rewriteHeadings, translateAnswers } from "./llm";
+import { judgeAnswer, rewriteHeadings, editAnswers, polishEdition, writeIntro, type Intro } from "./llm";
 import { sendCompletedToAdmins, sendDraftForReview } from "./emails";
 import { randomToken } from "./tokens";
+import { introFormat } from "./formats";
+import { checkLinks, findLinks, type LinkCheck } from "./links";
 import { brandForQuestionnaire } from "./brand";
 import { takeHomepageScreenshot } from "./screenshot";
 import { config } from "./config";
@@ -53,7 +55,9 @@ export type DraftItem = {
   /** The founder's answer as written, when it was translated into English or typo-corrected for the draft. */
   sourceAnswer?: string;
   sourceLanguage?: string;
-  sourceMode?: "translated" | "corrected";
+  sourceMode?: "translated" | "corrected" | "edited";
+  /** What the editing steps did to this answer, for the editor to check. */
+  notes?: string[];
 };
 
 export type Draft = {
@@ -62,6 +66,16 @@ export type Draft = {
   headingsRewritten: boolean;
   /** Manual placement of the founder's images: upload id -> question id it follows, or "none" to leave it out. */
   imagePlacement?: Record<string, number | "none">;
+  intro?: Intro;
+  /** Things the founder promised to send later. */
+  pending?: string[];
+  /** Places where the edition is incomplete and the editor should check. */
+  gaps?: string[];
+  /** Questions left out because nothing in the answer was for the reader. */
+  dropped?: { heading: string; reason: string }[];
+  /** Changes made by the final review pass. */
+  polishNotes?: string[];
+  links?: LinkCheck[];
 };
 
 export type Message = { id: number; role: "interviewer" | "founder"; kind: string; content: string; question_id: number | null };
@@ -287,14 +301,17 @@ export async function finishInterview(token: string): Promise<SubmitResult> {
   return { ok: true };
 }
 
-/** Builds the review draft. Answers keep the founder's words (translated into English or typo-corrected when needed); headings are rewritten by the model. */
+/** Builds the review draft: answers merged with their follow-ups and cleaned (translated, typos fixed, remarks to the
+ *  interviewer removed), headings rewritten, a final review pass, the intro and a check of the links. */
 export async function generateDraft(interviewId: number) {
   const sql = db();
   const i = await getInterviewById(interviewId);
   if (!i) return;
+  const b = await brandForQuestionnaire(i.questionnaire_id);
+  const newsletter = { name: b.name, about: b.about };
   const answers = await getAnswers(interviewId);
   const answered = answers.filter((a) => !a.skipped && a.text.trim());
-  const items: DraftItem[] = answered.map((a) => ({
+  let items: DraftItem[] = answered.map((a) => ({
     questionId: a.question_id,
     layer: a.layer as DraftItem["layer"],
     section: a.section,
@@ -302,21 +319,41 @@ export async function generateDraft(interviewId: number) {
     heading: a.prompt,
     answer: a.text,
   }));
+  const dropped: { heading: string; reason: string }[] = [];
+  let pending: string[] = [];
+  let gaps: string[] = [];
 
-  // Answers in another language are translated into English and typos are fixed; the original is kept alongside.
+  // 1. One coherent English answer per question: replies to follow-ups merged in, remarks to the interviewer left out.
   try {
-    const tr = await translateAnswers({ interviewId, items: items.map((it) => ({ id: it.questionId, answer: it.answer })) });
-    for (const it of items) {
-      const t = tr.get(it.questionId);
-      if (t && t.english !== it.answer) { it.sourceAnswer = it.answer; it.sourceLanguage = t.language; it.sourceMode = t.mode; it.answer = t.english; }
+    const msgs = await sql`SELECT question_id, role, kind, content FROM messages WHERE interview_id = ${interviewId} AND question_id IS NOT NULL ORDER BY id`;
+    const conv = new Map<number, { role: string; text: string }[]>();
+    for (const m of msgs) {
+      const role = m.role === "founder" ? "founder" : m.kind === "followup" ? "interviewer follow-up" : "interviewer question";
+      conv.set(m.question_id, [...(conv.get(m.question_id) ?? []), { role, text: m.content }]);
     }
+    const ed = await editAnswers({
+      interviewId,
+      items: items.map((it) => ({ id: it.questionId, question: it.original, saved: it.answer, conversation: conv.get(it.questionId) ?? [] })),
+    });
+    pending = ed.pending;
+    gaps = ed.gaps;
+    const kept: DraftItem[] = [];
+    for (const it of items) {
+      const e = ed.items.get(it.questionId);
+      if (!e) { kept.push(it); continue; }
+      if (e.drop) { dropped.push({ heading: it.original, reason: e.notes.join("; ") || "Nothing in the answer was for the reader" }); continue; }
+      if (e.english !== it.answer) { it.sourceAnswer = it.answer; it.sourceLanguage = e.language; it.sourceMode = "edited"; it.answer = e.english; }
+      if (e.notes.length) it.notes = e.notes;
+      kept.push(it);
+    }
+    items = kept;
   } catch (err) {
-    console.error("[draft] translation failed:", err instanceof Error ? err.message : err);
+    console.error("[draft] answer editing failed:", err instanceof Error ? err.message : err);
   }
 
+  // 2. Headings rewritten so they don't repeat from one issue to the next.
   let rewritten = false;
   try {
-    const b = await brandForQuestionnaire(i.questionnaire_id);
     const recent = await sql`
       SELECT i.draft FROM interviews i
       JOIN questionnaires q ON q.id = i.questionnaire_id
@@ -330,7 +367,7 @@ export async function generateDraft(interviewId: number) {
     }
     const map = await rewriteHeadings({
       interviewId: i.id,
-      newsletter: { name: b.name, about: b.about },
+      newsletter,
       founder: i.founder_name,
       company: i.company,
       items: items.map((it) => ({ id: it.questionId, prompt: it.original, answer: it.answer })),
@@ -345,7 +382,46 @@ export async function generateDraft(interviewId: number) {
     console.error("[draft] heading rewrite failed:", err instanceof Error ? err.message : err);
   }
 
-  const draft: Draft = { items, generatedAt: new Date().toISOString(), headingsRewritten: rewritten };
+  // 3. Final review pass over the whole edition.
+  let polishNotes: string[] = [];
+  try {
+    const p = await polishEdition({ interviewId, newsletter, items: items.map((it) => ({ id: it.questionId, heading: it.heading, answer: it.answer })) });
+    for (const it of items) {
+      const r = p.items.get(it.questionId);
+      if (!r) continue;
+      if (r.answer !== it.answer) { if (!it.sourceAnswer) { it.sourceAnswer = it.answer; it.sourceMode = "edited"; } it.answer = r.answer; }
+      it.heading = r.heading;
+    }
+    polishNotes = p.notes;
+  } catch (err) {
+    console.error("[draft] final review failed:", err instanceof Error ? err.message : err);
+  }
+
+  // 4. Intro in the publication's format.
+  let intro: Intro | undefined;
+  try {
+    intro = (await writeIntro({
+      interviewId,
+      newsletter,
+      format: introFormat(b.slug),
+      founder: i.founder_name,
+      company: i.company,
+      publicItems: items.filter((it) => it.layer !== "deep").map((it) => ({ heading: it.heading, answer: it.answer })),
+      deepItems: items.filter((it) => it.layer === "deep").map((it) => ({ heading: it.heading, answer: it.answer })),
+    })) ?? undefined;
+  } catch (err) {
+    console.error("[draft] intro failed:", err instanceof Error ? err.message : err);
+  }
+
+  // 5. Links the founder mentions: checked so a broken one is flagged before publishing.
+  let links: LinkCheck[] = [];
+  try {
+    links = await checkLinks([...new Set(items.flatMap((it) => findLinks(it.answer)))]);
+  } catch (err) {
+    console.error("[draft] link check failed:", err instanceof Error ? err.message : err);
+  }
+
+  const draft: Draft = { items, generatedAt: new Date().toISOString(), headingsRewritten: rewritten, intro, pending, gaps, dropped, polishNotes, links };
   if (i.draft?.imagePlacement) draft.imagePlacement = i.draft.imagePlacement; // keep manual photo placement
   await sql`
     UPDATE interviews SET draft = ${sql.json(draft as never)}, draft_status = ${rewritten ? "ready" : "failed"},

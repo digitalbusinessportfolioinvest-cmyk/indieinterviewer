@@ -14,7 +14,7 @@ export default function ReviewEditor(props: {
   status: string;
   canRegenerate: boolean;
 }) {
-  const [items, setItems] = useState(props.items.map((i) => ({ questionId: i.questionId, layer: i.layer, section: i.section, original: i.original, heading: i.heading, answer: i.answer, sourceAnswer: i.sourceAnswer, sourceLanguage: i.sourceLanguage, sourceMode: i.sourceMode })));
+  const [items, setItems] = useState(props.items.map((i) => ({ questionId: i.questionId, layer: i.layer, section: i.section, original: i.original, heading: i.heading, answer: i.answer, sourceAnswer: i.sourceAnswer, sourceLanguage: i.sourceLanguage, sourceMode: i.sourceMode, notes: i.notes })));
   const [analysis, setAnalysis] = useState(props.analysis);
   const [dirty, setDirty] = useState(false);
   const [pending, start] = useTransition();
@@ -59,7 +59,7 @@ export default function ReviewEditor(props: {
       <div className="row">
         <h2 style={{ margin: 0 }}>Draft</h2>
         <span className="spacer" />
-        <button className="secondary" onClick={copy}>{copied ? "Copied" : "Copy as Markdown"}</button>
+        <button className="secondary" onClick={copy}>{copied ? "Copied" : "Copy full edition (Markdown)"}</button>
         {props.canRegenerate && (
           <button className="secondary" disabled={pending} onClick={() => start(async () => { const r = await regenerateDraft(props.id); setResult(r); if (r.ok) window.location.reload(); })}>
             Rewrite headings again
@@ -87,7 +87,7 @@ export default function ReviewEditor(props: {
             )}
             {it.sourceAnswer && (
               <details style={{ marginTop: 6 }}>
-                <summary className="small muted">{it.sourceMode === "corrected" ? "Typos corrected" : `Translated from ${it.sourceLanguage || "another language"}`}: show what the founder wrote</summary>
+                <summary className="small muted">{it.sourceMode === "edited" ? `Edited${it.notes?.length ? ` (${it.notes.join("; ")})` : ""}` : it.sourceMode === "corrected" ? "Typos corrected" : `Translated from ${it.sourceLanguage || "another language"}`}: show what the founder wrote</summary>
                 <p className="pre small" style={{ background: "var(--soft)", padding: 10, borderRadius: 8 }}>{it.sourceAnswer}</p>
               </details>
             )}

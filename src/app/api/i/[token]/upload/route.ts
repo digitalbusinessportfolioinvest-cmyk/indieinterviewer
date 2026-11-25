@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getInterviewByToken } from "@/lib/interview";
-import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, putObject } from "@/lib/storage";
+import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, putObject, sniffImage } from "@/lib/storage";
 import { randomToken } from "@/lib/tokens";
 import { founderState } from "@/lib/founder-state";
 
@@ -41,14 +41,4 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
     INSERT INTO uploads (interview_id, object_key, filename, content_type, size_bytes)
     VALUES (${i.id}, ${key}, ${safeName}, ${realType}, ${file.size})`;
   return NextResponse.json(await founderState(i));
-}
-
-/** Detects the real image type from the file's first bytes. */
-function sniffImage(b: Uint8Array): string | null {
-  const starts = (sig: number[], at = 0) => sig.every((v, k) => b[at + k] === v);
-  if (starts([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
-  if (starts([0xff, 0xd8, 0xff])) return "image/jpeg";
-  if (starts([0x47, 0x49, 0x46, 0x38])) return "image/gif";
-  if (starts([0x52, 0x49, 0x46, 0x46]) && starts([0x57, 0x45, 0x42, 0x50], 8)) return "image/webp";
-  return null;
 }

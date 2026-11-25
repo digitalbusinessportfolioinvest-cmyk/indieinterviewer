@@ -32,7 +32,7 @@ export default function ApproveForm({ token, clause }: { token: string; clause: 
       <div style={{ marginTop: 12 }}>
         <button onClick={approve} disabled={!checked || busy}>{busy ? "Approving…" : "Approve"}</button>
       </div>
-      <p className="muted small" style={{ marginTop: 12 }}>If something needs changing, reply to the email you received instead of approving.</p>
+      <p className="muted small" style={{ marginTop: 12 }}>If something needs changing, use "Suggest a change" under the answer (or reply to our email) instead of approving. We'll send you the updated edition.</p>
       {error && <p className="error">{error}</p>}
     </>
   );

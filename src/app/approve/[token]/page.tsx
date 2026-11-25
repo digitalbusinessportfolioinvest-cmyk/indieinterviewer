@@ -22,8 +22,8 @@ export default async function ApprovePage({ params }: { params: Promise<{ token:
     <main className="wrap">
       <div className="brand"><Logo src={brand.logo} alt={brand.name} /><span>{brand.name} · Interview with {i.founder_name}</span></div>
       <div className="card">
-        <p className="muted small">Please read your interview below. This is the edition we will publish.</p>
-        <EditionView edition={edition} />
+        <p className="muted small">Please read your interview below. This is the edition we will publish. If something needs changing, use "Suggest a change" under that answer.</p>
+        <EditionView edition={edition} changeToken={approved ? undefined : token} />
       </div>
       <div className="card">
         {approved ? (

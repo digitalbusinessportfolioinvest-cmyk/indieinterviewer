@@ -145,30 +145,131 @@ export async function rewriteHeadings(input: {
   return map;
 }
 
-const translateSystem = `You prepare founder interview answers for publication in English.
+const editSystem = `You prepare founder interview answers for publication in English. You receive, for each question, the founder's saved answer and the conversation behind it (the interviewer's question, any follow-up questions and every reply the founder gave). The saved answer is the founder's replies joined together.
 
-You receive a list of answers. For each one:
-- If it is NOT written in English, return a faithful English translation (mode "translated").
-- If it is in English but has typos, spelling mistakes or obvious slips (missing letters, wrong keys, doubled words, broken punctuation), return it with only those mistakes fixed (mode "corrected").
-- If it is in English and clean, omit it.
+For each item, return ONE answer that reads as a single coherent text a reader can follow:
+- Merge the original reply and the replies to follow-ups into one text. Remove repetitions (when a follow-up reply restates something, say it once), but never lose a fact, figure, example, opinion or nuance the founder gave.
+- Leave out anything addressed to the interviewer rather than the reader: remarks such as "it's not important", "it's ok", "I'll send them to you later by email", "this is too soon as I'm the first user", complaints about the question, or meta comments about the interview itself. Also leave out a reply that answers something other than the question.
+- If, after that, nothing that answers the question is left, set "drop": true.
+- Translate anything not in English into natural English, and fix typos, spelling and punctuation slips.
+- Keep the founder's voice: first person, their tone, their wording where it is already clear English. Do not add anything they did not say, do not summarise, do not soften or embellish, do not explain.
+- Keep names, product names, URLs, handles, numbers and currencies exactly as given.
 
-In every case keep exactly what the founder said: do not add, remove, summarise, rephrase, soften or embellish anything, and keep their tone, first person and style. Corrections fix mistakes only; they never "improve" wording. Translations read as natural English the founder could have written. Keep names, product names, URLs, handles, numbers and currencies as written. If an answer mixes languages, translate the non-English parts and keep the English parts.
+For each item also return "notes": a short list of what you did that an editor should check, each a few words, e.g. "Merged follow-up reply about weekly hours", "Removed remark to interviewer: 'it's not important'", "Translated from Spanish", "Typos corrected". Empty list if the answer only had nothing to fix.
 
-Reply with JSON only: {"translations": [{"id": <item id>, "mode": "translated" | "corrected", "language": "<source language, in English>", "english": "..."}]}`;
+Also return, for the whole interview:
+- "pending": things the founder said they would send or share later (e.g. "Substack and X handles and website link, promised by email").
+- "gaps": places where the published text would be incomplete and an editor should fill in or check, e.g. "Connection: mentions Substack and X but gives no handles or links".
 
-/** English versions of the answers that needed translation or typo fixes (by item id). */
-export async function translateAnswers(input: { interviewId: number; items: { id: number; answer: string }[] }) {
-  const map = new Map<number, { mode: "translated" | "corrected"; language: string; english: string }>();
-  if (!input.items.length) return map;
+Reply with JSON only: {"items": [{"id": <item id>, "english": "...", "drop": false, "language": "<main source language, in English>", "notes": ["..."]}], "pending": ["..."], "gaps": ["..."]}`;
+
+export type EditedAnswer = { english: string; drop: boolean; language: string; notes: string[] };
+
+/** Merges each answer with its follow-ups, removes remarks to the interviewer, translates and fixes typos. */
+export async function editAnswers(input: {
+  interviewId: number;
+  items: { id: number; question: string; saved: string; conversation: { role: string; text: string }[] }[];
+}) {
   const raw = await chat(
-    [{ role: "system", content: translateSystem }, { role: "user", content: JSON.stringify(input.items.map((i) => ({ id: i.id, answer: i.answer })), null, 1) }],
-    { effort: "low", maxTokens: 16000, timeoutMs: 240_000, interviewId: null, kind: "translate" },
+    [{ role: "system", content: editSystem }, { role: "user", content: JSON.stringify(input.items, null, 1) }],
+    { effort: "medium", maxTokens: 24000, timeoutMs: 300_000, interviewId: null, kind: "edit" },
   );
-  const out = parseJson<{ translations?: { id: number; mode?: string; language?: string; english?: string }[] }>(raw);
-  for (const t of out.translations ?? []) {
-    if (typeof t.id === "number" && typeof t.english === "string" && t.english.trim()) {
-      map.set(t.id, { mode: t.mode === "corrected" ? "corrected" : "translated", language: String(t.language ?? "").trim() || "unknown", english: t.english.trim() });
-    }
+  const out = parseJson<{ items?: { id: number; english?: string; drop?: boolean; language?: string; notes?: string[] }[]; pending?: string[]; gaps?: string[] }>(raw);
+  const map = new Map<number, EditedAnswer>();
+  for (const t of out.items ?? []) {
+    if (typeof t.id !== "number") continue;
+    const english = String(t.english ?? "").trim();
+    if (!english && !t.drop) continue;
+    map.set(t.id, { english, drop: Boolean(t.drop) || !english, language: String(t.language ?? "").trim() || "English", notes: (t.notes ?? []).map(String).filter(Boolean) });
   }
-  return map;
+  const strs = (v: unknown) => (Array.isArray(v) ? v.map(String).map((x) => x.trim()).filter(Boolean) : []);
+  return { items: map, pending: strs(out.pending), gaps: strs(out.gaps) };
+}
+
+const polishSystem = (name: string, about: string) => `You are the final editor of a written founder interview for ${name}, ${about}. You receive the whole edition: each item has a heading (the question as it will be published) and the founder's answer, already in English.
+
+Do one full review pass so the edition reads polished:
+- Each answer must respond to its heading. Headings are written by the editor, so when they don't fit, fix the HEADING, never the answer's content. Headings stay short (ideally under 15 words), conversational, no quotation marks, and must not repeat each other's wording.
+- Answers: improve flow and coherence only where needed (clumsy joins between merged replies, repeated phrases, a sentence that is hard to follow). Remove any leftover of the conversation with the interviewer.
+- You must NOT change what the founder says: no new facts, no removed facts, no changed opinions or tone, no softening, no embellishing, no summarising. Keep first person, names, URLs, numbers and currencies exactly.
+- If an item is already fine, return it unchanged.
+
+Return every item, plus "notes": a short list of what you changed, each a few words with the item it refers to (e.g. "Heading of the weekly hours question adjusted to fit the answer"). Empty list if nothing changed.
+
+Reply with JSON only: {"items": [{"id": <item id>, "heading": "...", "answer": "..."}], "notes": ["..."]}`;
+
+/** Final pass over the assembled edition: headings that fit, smooth answers, no leftover conversation. */
+export async function polishEdition(input: {
+  interviewId: number;
+  newsletter: { name: string; about: string };
+  items: { id: number; heading: string; answer: string }[];
+}) {
+  const raw = await chat(
+    [{ role: "system", content: polishSystem(input.newsletter.name, input.newsletter.about) }, { role: "user", content: JSON.stringify(input.items, null, 1) }],
+    { effort: "medium", maxTokens: 24000, timeoutMs: 300_000, interviewId: null, kind: "polish" },
+  );
+  const out = parseJson<{ items?: { id: number; heading?: string; answer?: string }[]; notes?: string[] }>(raw);
+  const map = new Map<number, { heading: string; answer: string }>();
+  for (const t of out.items ?? []) {
+    const heading = String(t.heading ?? "").trim();
+    const answer = String(t.answer ?? "").trim();
+    if (typeof t.id === "number" && heading && answer) map.set(t.id, { heading, answer });
+  }
+  return { items: map, notes: Array.isArray(out.notes) ? out.notes.map(String).filter(Boolean) : [] };
+}
+
+export type Intro = {
+  titles: { title: string; subtitle: string }[];
+  title: string;
+  subtitle: string;
+  hook: string;
+  snapshot?: string;
+  bullets: { label: string; text: string }[];
+  teaser?: string;
+  pullQuote?: string;
+};
+
+const introSystem = (name: string, about: string, f: import("./formats").IntroFormat) => `You write the opening of a founder interview edition for ${name}, ${about}. You receive the founder, the public interview (headings and answers) and, separately, the Deep Dive answers for paid subscribers.
+
+Write, in English:
+1. "titles": 3 options of {"title", "subtitle"} for the post. Titles under 70 characters, specific to this founder and story, built to make subscribers open the email; numbers only if they come from the public answers. Subtitles one sentence. No clickbait, no hype words, nothing the founder didn't say.
+2. "hook": two sentences that open the edition: where this founder is and what makes the story worth reading. The first sentence will be shown in bold.
+${f.snapshot ? `3. "snapshot": one line of facts from the PUBLIC answers only, separated by " · " (stage, team, time invested, and similar). Never use Deep Dive information here.\n` : ""}4. "bullets": exactly three short lines (under 15 words each), in this order:
+${f.bullets.map((b, k) => `   - "${b}": ${f.bulletGuide[k]}`).join("\n")}
+${f.deepTeaser ? `5. "teaser": one sentence starting exactly "Besides, in the Deep Dive learn" that makes readers want the paid Deep Dive. Mention two or three topics the founder REALLY covers in their Deep Dive answers, worded positively and appealingly. Never give data, figures or conclusions (say what they talk about, not what they say), never promise an explanation the answers don't contain, and avoid unattractive topics such as unsubscribes or losses. If there are no Deep Dive answers, return an empty string.\n` : ""}6. "pullQuote": one short, striking sentence taken verbatim from the founder's public answers.
+
+Use only what the founder said. Reply with JSON only: {"titles": [{"title": "...", "subtitle": "..."}], "hook": "...",${f.snapshot ? ' "snapshot": "...",' : ""} "bullets": ["...", "...", "..."],${f.deepTeaser ? ' "teaser": "...",' : ""} "pullQuote": "..."}`;
+
+export async function writeIntro(input: {
+  interviewId: number;
+  newsletter: { name: string; about: string };
+  format: import("./formats").IntroFormat;
+  founder: string;
+  company: string | null;
+  publicItems: { heading: string; answer: string }[];
+  deepItems: { heading: string; answer: string }[];
+}): Promise<Intro | null> {
+  const user = [
+    `Founder: ${input.founder}${input.company ? `, ${input.company}` : ""}`,
+    `Public interview:\n${JSON.stringify(input.publicItems, null, 1)}`,
+    input.format.deepTeaser ? `Deep Dive answers (paid; use only for the teaser):\n${input.deepItems.length ? JSON.stringify(input.deepItems, null, 1) : "none"}` : null,
+  ].filter(Boolean).join("\n\n");
+  const raw = await chat(
+    [{ role: "system", content: introSystem(input.newsletter.name, input.newsletter.about, input.format) }, { role: "user", content: user }],
+    { effort: "medium", maxTokens: 6000, timeoutMs: 180_000, interviewId: null, kind: "intro" },
+  );
+  const out = parseJson<{ titles?: { title?: string; subtitle?: string }[]; hook?: string; snapshot?: string; bullets?: string[]; teaser?: string; pullQuote?: string }>(raw);
+  const titles = (out.titles ?? []).map((t) => ({ title: String(t.title ?? "").trim(), subtitle: String(t.subtitle ?? "").trim() })).filter((t) => t.title);
+  const bullets = (out.bullets ?? []).map(String).map((b) => b.replace(/^\s*(→|->)\s*/, "").trim()).slice(0, 3);
+  if (!titles.length || !out.hook) return null;
+  return {
+    titles,
+    title: titles[0].title,
+    subtitle: titles[0].subtitle,
+    hook: String(out.hook).trim(),
+    snapshot: input.format.snapshot ? String(out.snapshot ?? "").trim() || undefined : undefined,
+    bullets: input.format.bullets.map((label, k) => ({ label, text: bullets[k] ?? "" })),
+    teaser: input.format.deepTeaser ? String(out.teaser ?? "").trim() || undefined : undefined,
+    pullQuote: String(out.pullQuote ?? "").trim() || undefined,
+  };
 }

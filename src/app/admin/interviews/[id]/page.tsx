@@ -10,7 +10,8 @@ import AdminHeader from "../../AdminHeader";
 import ReviewEditor from "./ReviewEditor";
 import PhotoPlacer from "./PhotoPlacer";
 import EditionView from "@/components/EditionView";
-import { buildEdition } from "@/lib/edition";
+import { buildEdition, editionToMarkdown } from "@/lib/edition";
+import { AdminImageUpload, IntroEditor, ResolveRequest } from "./Extras";
 import { ActionButton, DeleteInterview, PublicationDateForm, PublishedToggle, ScreenshotForm } from "./Controls";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,17 @@ export default async function InterviewDetail({ params, searchParams }: { params
   );
 
   const edition = i.draft ? await buildEdition(i.id, i.draft, i.analysis) : null;
+  const changeRequests = await db()`SELECT id, heading, text, created_at, resolved_at FROM change_requests WHERE interview_id = ${i.id} ORDER BY id`;
+  const checklist: { title: string; lines: string[] }[] = [];
+  if (i.draft) {
+    const d = i.draft;
+    if (d.pending?.length) checklist.push({ title: "Pending from the founder", lines: d.pending });
+    if (d.gaps?.length) checklist.push({ title: "Gaps to fill or check", lines: d.gaps });
+    const broken = (d.links ?? []).filter((l) => !l.ok);
+    if (broken.length) checklist.push({ title: "Links that didn't load", lines: broken.map((l) => `${l.url} (${l.status})`) });
+    if (d.dropped?.length) checklist.push({ title: "Answers left out", lines: d.dropped.map((x) => `${x.heading}: ${x.reason}`) });
+    if (d.polishNotes?.length) checklist.push({ title: "Final review pass", lines: d.polishNotes });
+  }
 
   const interviewUrl = `${config.appUrl()}/i/${i.token}`;
   const approvalUrl = `${config.appUrl()}/approve/${i.approval_token}`;
@@ -121,6 +133,36 @@ export default async function InterviewDetail({ params, searchParams }: { params
         </div>
       )}
 
+      {changeRequests.length > 0 && (
+        <div className="card">
+          <h2>Changes requested by the founder</h2>
+          {changeRequests.map((r) => (
+            <div key={r.id} className="photo-row" style={{ alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}>
+                <p className="small muted" style={{ margin: 0 }}>{r.heading || "General"} · {new Date(r.created_at).toUTCString()}</p>
+                <p className="pre" style={{ margin: "4px 0 0" }}>{r.text}</p>
+              </div>
+              {r.resolved_at ? <span className="small muted">Done</span> : <ResolveRequest id={i.id} requestId={r.id} />}
+            </div>
+          ))}
+          <p className="small muted">Edit the draft below, then send it for approval again: the founder gets the updated edition.</p>
+        </div>
+      )}
+
+      {checklist.length > 0 && (
+        <div className="card">
+          <h2>Editor&apos;s checklist</h2>
+          {checklist.map((c) => (
+            <div key={c.title}>
+              <p style={{ margin: "12px 0 4px", fontWeight: 600 }}>{c.title}</p>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>{c.lines.map((l, k) => <li key={k} className="small">{l}</li>)}</ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {i.draft?.intro && <IntroEditor key={i.draft.generatedAt} id={i.id} intro={i.draft.intro} editable={editable} />}
+
       {i.draft && (
         <ReviewEditor
           id={i.id}
@@ -128,11 +170,13 @@ export default async function InterviewDetail({ params, searchParams }: { params
           analysis={i.analysis ?? ""}
           needsAnalysis={i.deep_skipped_count > 0}
           editable={editable}
-          markdown={draftToMarkdown(i.draft, i.analysis)}
+          markdown={edition ? editionToMarkdown(edition) : draftToMarkdown(i.draft, i.analysis)}
           status={i.status}
           canRegenerate={editable && i.status !== "awaiting_approval"}
         />
       )}
+
+      {i.draft && editable && <AdminImageUpload id={i.id} />}
 
       {i.draft && edition && edition.photos.length > 0 && (
         <PhotoPlacer

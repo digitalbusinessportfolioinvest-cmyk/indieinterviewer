@@ -4,14 +4,16 @@ import { createHmac } from "node:crypto";
 import { db } from "./db";
 import { config } from "./config";
 import type { Draft, DraftItem } from "./interview";
+import type { Intro } from "./llm";
 import { splitDraft } from "@/components/ArticleView";
+import { linkParts } from "./links";
 
 export type EditionImage = { id: number; filename: string; url: string };
 export type EditionBlock =
   | { type: "section"; label: string }
-  | { type: "qa"; heading: string; answer: string }
+  | { type: "qa"; heading: string; answer: string; questionId?: number }
   | { type: "image"; image: EditionImage };
-export type Edition = { cover: EditionImage | null; blocks: EditionBlock[] };
+export type Edition = { cover: EditionImage | null; blocks: EditionBlock[]; intro?: Intro };
 
 function secret() {
   return process.env.IMAGE_SIGNING_SECRET || process.env.MCP_SECRET || "";
@@ -58,7 +60,7 @@ export async function buildEdition(interviewId: number, draft: Draft, analysis: 
 
   const blocks: EditionBlock[] = [];
   const push = (it: DraftItem) => {
-    blocks.push({ type: "qa", heading: it.heading, answer: it.answer });
+    blocks.push({ type: "qa", heading: it.heading, answer: it.answer, questionId: it.questionId });
     for (const ph of byQ.get(it.questionId) ?? []) blocks.push({ type: "image", image: { id: ph.id, filename: ph.filename, url: ph.url } });
   };
   pub.forEach(push);
@@ -66,5 +68,34 @@ export async function buildEdition(interviewId: number, draft: Draft, analysis: 
   deep.forEach(push);
   if (analysis) blocks.push({ type: "qa", heading: "Analysis", answer: analysis });
   closing.forEach(push);
-  return { cover: shot ? toImg(shot) : null, blocks, photos };
+  return { cover: shot ? toImg(shot) : null, blocks, photos, intro: draft.intro };
+}
+
+/** The whole edition as Markdown, ready to paste into the newsletter editor (images as links to their files). */
+export function editionToMarkdown(e: Edition) {
+  const out: string[] = [];
+  const md = (t: string) => linkParts(t).map((p) => (p.href ? `[${p.text}](${p.href})` : p.text)).join("");
+  if (e.intro) {
+    out.push(`# ${e.intro.title}`);
+    if (e.intro.subtitle) out.push(`*${e.intro.subtitle}*`);
+  }
+  if (e.cover) out.push(`![Cover](${e.cover.url})`);
+  if (e.intro) out.push(...introLines(e.intro, "md"));
+  for (const b of e.blocks) {
+    if (b.type === "section") out.push(`---\n\n**${b.label.toUpperCase()}**`);
+    else if (b.type === "image") out.push(`![${b.image.filename}](${b.image.url})`);
+    else out.push(`## ${b.heading}\n\n${md(b.answer.trim())}`);
+  }
+  return out.join("\n\n");
+}
+
+/** Hook, snapshot, bullets and teaser, as Markdown ("md") or plain text ("text"). */
+export function introLines(intro: Intro, mode: "md" | "text") {
+  const bold = (t: string) => (mode === "md" ? `**${t}**` : t);
+  const [first, ...rest] = intro.hook.split(/(?<=[.!?])\s+/);
+  const lines = [`${bold(first)}${rest.length ? ` ${rest.join(" ")}` : ""}`];
+  if (intro.snapshot) lines.push(`Snapshot: ${intro.snapshot}`);
+  lines.push(intro.bullets.filter((b) => b.text).map((b) => `${bold(`${b.label}:`)} → ${b.text}`).join("\n\n"));
+  if (intro.teaser) lines.push(intro.teaser);
+  return lines;
 }

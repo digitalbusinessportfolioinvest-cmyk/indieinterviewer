@@ -8,7 +8,7 @@ import { draftToMarkdown } from "@/components/ArticleView";
 import { buildEdition } from "./edition";
 import {
   createInterviewOp, deleteInterviewOp, interviewLinks, regenerateDraftOp, resendInvitationOp,
-  saveReviewOp, savePhotoPlacementOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
+  saveReviewOp, savePhotoPlacementOp, saveIntroOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
 } from "./admin-ops";
 
 type Args = Record<string, unknown>;
@@ -108,6 +108,9 @@ export const tools: Tool[] = [
         draft: i.draft,
         analysis: i.analysis,
         draft_markdown: i.draft ? draftToMarkdown(i.draft, i.analysis) : null,
+        intro: i.draft?.intro ?? null,
+        checklist: i.draft ? { pending: i.draft.pending ?? [], gaps: i.draft.gaps ?? [], dropped: i.draft.dropped ?? [], broken_links: (i.draft.links ?? []).filter((l) => !l.ok), final_review: i.draft.polishNotes ?? [] } : null,
+        change_requests: await db()`SELECT id, heading, text, created_at, resolved_at FROM change_requests WHERE interview_id = ${i.id} ORDER BY id`,
         photos: i.draft ? (await buildEdition(i.id, i.draft, i.analysis)).photos.map((p) => ({ uploadId: p.id, filename: p.filename, after_questionId: p.after, automatic: p.auto, url: p.url })) : [],
         uploads: await Promise.all(uploads.map(async (u) => ({
           filename: u.filename, kind: u.kind, content_type: u.content_type, size_bytes: u.size_bytes,
@@ -163,10 +166,19 @@ export const tools: Tool[] = [
           },
         },
         analysis: { type: "string", description: "Full analysis text. Empty string clears it." },
+        intro: {
+          type: "object",
+          description: "Intro fields to change: title, subtitle, hook, snapshot, teaser, pullQuote (strings) and bullets (array of 3 strings, in order).",
+          properties: { title: { type: "string" }, subtitle: { type: "string" }, hook: { type: "string" }, snapshot: { type: "string" }, teaser: { type: "string" }, pullQuote: { type: "string" }, bullets: { type: "array", items: { type: "string" } } },
+        },
       },
       required: ["id"],
     },
     run: async (a) => {
+      if (a.intro && typeof a.intro === "object") {
+        const r = await saveIntroOp(num(a.id), a.intro as never);
+        if (!r.ok || (!a.items && a.analysis === undefined)) return r;
+      }
       const items = Array.isArray(a.items) ? (a.items as Args[]).map((x) => ({
         questionId: num(x.questionId),
         heading: x.heading === undefined ? undefined : String(x.heading),

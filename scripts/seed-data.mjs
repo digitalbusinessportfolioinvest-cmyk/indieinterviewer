@@ -30,7 +30,7 @@ export const questionnaires = [
     deepDiveIntro:
       "That's the end of the public interview. The next questions are for the newsletter's paid subscribers, where founders usually share (voluntarily) more complete information. This part is optional: you can skip any or all of the questions by replying \"skip\". That said, I really appreciate it when founders do answer, because it helps me give my most loyal readers more detailed information. When a founder doesn't answer these questions, I write an analysis instead, which is also sent to them for review before publication.",
     closing:
-      "Thank you, that's the whole interview.\n\nOne last thing before you send it: please add a photo of yourself. We strongly recommend it, because readers like to put a face to the story. You can also add your logo, screenshots or any other visuals.",
+      "Thank you, that's the whole interview.\n\nOne last thing before you send it: please add a photo of yourself. We strongly recommend it, because readers like to put a face to the story. You can also add your logo, screenshots or any other visuals. If you'd rather send images or links later, just reply to any of our emails.",
     rightsClause:
       "By clicking Approve, you confirm that this interview reflects your answers and you assign to Founders Courier, publisher of Indie Hustle, all rights in this interview (including authorization to use your name, photo, logo and any images provided together with the interview). Founders Courier may publish, edit, adapt and reproduce it, in whole or in part, in its newsletter, website, social media and any other format, including compilations, reports and books, provided that it respects the integrity of the original message and does not manipulate or misrepresent it. You may republish your interview anywhere, as long as you credit Indie Hustle as the original source.",
     questions: [
@@ -75,7 +75,7 @@ export const questionnaires = [
     deepDiveIntro:
       "That's the end of the public interview. The next questions are for the newsletter's paid subscribers, where founders usually share (voluntarily) more complete information. This part is optional: you can skip any or all of the questions by replying \"skip\". That said, I really appreciate it when founders do answer, because it helps me give my most loyal readers more detailed information. When a founder doesn't answer these questions, I write an analysis instead, which is also sent to them for review before publication.",
     closing:
-      "Thank you, that's the whole interview.\n\nOne last thing before you send it: please add a photo of yourself. We strongly recommend it, because readers like to put a face to the story. You can also add your logo, screenshots or any other visuals.",
+      "Thank you, that's the whole interview.\n\nOne last thing before you send it: please add a photo of yourself. We strongly recommend it, because readers like to put a face to the story. You can also add your logo, screenshots or any other visuals. If you'd rather send images or links later, just reply to any of our emails.",
     rightsClause:
       "By clicking Approve, you confirm that this interview reflects your answers and you assign to Founders Courier, publisher of Founders Struggles, all rights in this interview (including authorization to use your name, photo, logo and any images provided together with the interview). Founders Courier may publish, edit, adapt and reproduce it, in whole or in part, in its newsletter, website, social media and any other format, including compilations, reports and books, provided that it respects the integrity of the original message and does not manipulate or misrepresent it. You may republish your interview anywhere, as long as you credit Founders Struggles as the original source.",
     questions: [
@@ -107,7 +107,7 @@ export const questionnaires = [
       { layer: "deep", section: "Financial", prompt: "How much money did you need to get started?" },
       { layer: "deep", section: "Operational", prompt: "Walk us through your current customer acquisition: where do they come from and where do you lose them?" },
       { layer: "deep", section: "Strategic Outlook", prompt: "Are you building this to keep, to sell, or you haven't decided yet? What's your timeline?" },
-      { layer: "deep", section: "Connection", prompt: "Are you open to hearing from our readers directly? If so, where can they follow you?" },
+      { layer: "deep", section: "Connection", prompt: "Are you open to hearing from our readers directly? If so, where can they follow you?", helper: "Please share the links (website, X, LinkedIn, Substack…). If you don't have them at hand, you can reply to any of our emails later." },
 
       { layer: "closing", prompt: "Give one concrete, actionable plan someone building a project right now could implement this week." },
     ],

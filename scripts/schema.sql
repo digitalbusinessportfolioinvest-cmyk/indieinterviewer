@@ -166,3 +166,15 @@ ALTER TABLE interviews ADD COLUMN IF NOT EXISTS review_token TEXT;
 -- Closing steps after the last question: photo -> review_ask -> review.
 ALTER TABLE interviews ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ;
 ALTER TABLE interviews ADD COLUMN IF NOT EXISTS closing_step TEXT NOT NULL DEFAULT 'photo';
+
+-- Changes the founder asks for from the approval page, one per answer.
+CREATE TABLE IF NOT EXISTS change_requests (
+  id SERIAL PRIMARY KEY,
+  interview_id INTEGER NOT NULL REFERENCES interviews(id) ON DELETE CASCADE,
+  question_id INTEGER,
+  heading TEXT NOT NULL DEFAULT '',
+  text TEXT NOT NULL,
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS change_requests_interview_idx ON change_requests (interview_id);
