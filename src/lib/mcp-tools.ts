@@ -8,7 +8,7 @@ import { draftToMarkdown } from "@/components/ArticleView";
 import { buildEdition } from "./edition";
 import {
   createInterviewOp, deleteInterviewOp, interviewLinks, regenerateDraftOp, resendInvitationOp,
-  saveReviewOp, savePhotoPlacementOp, saveIntroOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
+  saveReviewOp, savePhotoPlacementOp, saveIntroOp, sendReviewEmailOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
 } from "./admin-ops";
 
 type Args = Record<string, unknown>;
@@ -200,6 +200,12 @@ export const tools: Tool[] = [
       for (const [k, v] of Object.entries((a.placement ?? {}) as Record<string, unknown>)) p[k] = v === "none" || v === "auto" ? v : num(v);
       return savePhotoPlacementOp(num(a.id), p);
     },
+  },
+  {
+    name: "send_review_email",
+    description: "Email the current edition to the admins again for review (no regeneration, nothing goes to the founder).",
+    inputSchema: { type: "object", properties: { id }, required: ["id"] },
+    run: async (a) => sendReviewEmailOp(num(a.id)),
   },
   {
     name: "regenerate_draft",

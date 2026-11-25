@@ -113,3 +113,13 @@ export const questionnaires = [
     ],
   },
 ];
+
+// Founders Struggles v2: after the fragility question, ask how the founder protects against it.
+// A new version so that interviews on v1 keep their question ids.
+{
+  const v1 = questionnaires.find((q) => q.newsletter === "founders-struggles" && q.version === "v1");
+  const at = v1.questions.findIndex((q) => q.prompt === "Where is this project structurally fragile right now?");
+  const questions = [...v1.questions];
+  questions.splice(at + 1, 0, { layer: "deep", section: "Strategic", prompt: "How are you protecting yourself against that?" });
+  questionnaires.push({ ...v1, version: "v2", questions });
+}

@@ -82,7 +82,7 @@ export function editionToMarkdown(e: Edition) {
   if (e.cover) out.push(`![Cover](${e.cover.url})`);
   if (e.intro) out.push(...introLines(e.intro, "md"));
   for (const b of e.blocks) {
-    if (b.type === "section") out.push(`---\n\n**${b.label.toUpperCase()}**`);
+    if (b.type === "section") out.push(`---\n\n# ${b.label}\n\n*For paid subscribers*`);
     else if (b.type === "image") out.push(`![${b.image.filename}](${b.image.url})`);
     else out.push(`## ${b.heading}\n\n${md(b.answer.trim())}`);
   }

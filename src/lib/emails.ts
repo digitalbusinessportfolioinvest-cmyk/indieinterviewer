@@ -145,7 +145,7 @@ function editionHtml(e: Edition, forAdmin = true) {
     if (e.intro.teaser) html += `<p style="margin:10px 0 0">${escapeHtml(e.intro.teaser)}</p>`;
   }
   for (const bl of e.blocks) {
-    if (bl.type === "section") html += `<div style="margin:28px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#666">${escapeHtml(bl.label)}</div>`;
+    if (bl.type === "section") html += `<div style="margin:40px 0 8px;padding:14px 16px;border-top:3px solid #c9725f;border-bottom:1px solid #e3c4bb;background:#fbf1ee"><div style="font-size:20px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a24e3c">${escapeHtml(bl.label)}</div><div style="font-size:14px;color:#6b4a42;margin-top:2px">For paid subscribers</div></div>`;
     else if (bl.type === "image") html += img(bl.image.url, bl.image.filename);
     else html += `<h3 style="font-size:16px;margin:22px 0 6px">${escapeHtml(bl.heading)}</h3><p style="margin:0;line-height:1.55;white-space:pre-wrap">${linkedHtml(bl.answer.trim())}</p>`;
   }
@@ -159,7 +159,7 @@ function editionText(e: Edition, forAdmin = true) {
   else if (forAdmin) parts.push("[No cover yet]");
   if (e.intro) parts.push(...introLines(e.intro, "text"));
   for (const bl of e.blocks) {
-    if (bl.type === "section") parts.push(bl.label.toUpperCase());
+    if (bl.type === "section") parts.push(`==============================\n${bl.label.toUpperCase()} · FOR PAID SUBSCRIBERS\n==============================`);
     else if (bl.type === "image") parts.push(`[Image: ${bl.image.url}]`);
     else parts.push(`${bl.heading}\n${bl.answer.trim()}`);
   }
@@ -199,7 +199,7 @@ export async function sendDraftForReview(i: WithQn & {
   const panel = `${config.appUrl()}/admin/interviews/${i.id}`;
   const needsAnalysis = i.deep_skipped_count > 0 && !i.analysis?.trim();
   const paragraphs = [
-    `${i.founder_name}${i.company ? ` (${i.company})` : ""} has finished the ${b.name} interview. Below is the assembled edition after the final review pass, with the editor's checklist first. The founder's original answers are in the panel.`,
+    `${i.founder_name}${i.company ? ` (${i.company})` : ""} has finished the ${b.name} interview. Below is the edition as subscribers will read it, followed by the editor's checklist. The founder's original answers are in the panel.`,
     needsAnalysis
       ? `The founder skipped ${i.deep_skipped_count} Deep Dive question(s), so it needs your analysis before it can go to the founder. Write it in the panel and send it from there.`
       : "If it's good to go, approve it with the button and it will be sent to the founder for their approval. To change anything first, edit it in the panel.",
@@ -208,12 +208,12 @@ export async function sendDraftForReview(i: WithQn & {
   const button = needsAnalysis
     ? { label: "Open in the panel", url: panel }
     : { label: "Approve and send to founder", url: `${config.appUrl()}/review/${i.review_token}` };
-  const extra = `${needsAnalysis ? "" : `<p style="margin:0 0 8px;font-size:14px"><a href="${escapeHtml(panel)}" style="color:#333">Edit in the panel</a></p>`}${reviewNotesHtml(i.draft)}${editionHtml(edition)}`;
+  const extra = `${needsAnalysis ? "" : `<p style="margin:0 0 8px;font-size:14px"><a href="${escapeHtml(panel)}" style="color:#333">Edit in the panel</a></p>`}${editionHtml(edition)}${reviewNotes(i.draft).length ? `<div style="border-top:3px solid #333;margin-top:36px;padding-top:6px"><p style="font-size:18px;font-weight:700;margin:12px 0 0">Editor's checklist</p>${reviewNotesHtml(i.draft)}</div>` : ""}`;
   return sendEmail({
     kind: "draft_review",
     to: config.adminEmails(),
     subject: `Review: ${i.founder_name}${i.company ? ` (${i.company})` : ""} · ${b.name}`,
-    text: `${textWithLink(paragraphs, button)}\n\nPanel: ${panel}\n\n${reviewNotesText(i.draft)}\n\n---\n\n${editionText(edition)}`,
+    text: `${textWithLink(paragraphs, button)}\n\nPanel: ${panel}\n\n---\n\n${editionText(edition)}\n\n---\n\nEDITOR'S CHECKLIST\n\n${reviewNotesText(i.draft)}`,
     html: layout(paragraphs, button, b.name, extra),
     interviewId: i.id,
     from: fromHeader(b),

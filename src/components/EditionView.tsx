@@ -37,7 +37,7 @@ export default function EditionView({ edition, changeToken }: { edition: Edition
       )}
       {edition.blocks.map((b, k) =>
         b.type === "section" ? (
-          <p key={k} className="section-label">{b.label}</p>
+          <div key={k} className="deep-break"><div className="deep-break-title">{b.label}</div><div className="deep-break-sub">For paid subscribers</div></div>
         ) : b.type === "image" ? (
           <img key={k} className="edition-img" src={b.image.url} alt={b.image.filename} />
         ) : (

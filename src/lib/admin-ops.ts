@@ -6,7 +6,7 @@ import { randomToken } from "./tokens";
 import { generateDraft, getInterviewById, type Draft } from "./interview";
 import { deleteObjects, MAX_UPLOAD_BYTES, putObject, sniffImage } from "./storage";
 import type { Intro } from "./llm";
-import { sendApprovalRequest, sendInvitation, sendPublicationDate } from "./emails";
+import { sendApprovalRequest, sendDraftForReview, sendInvitation, sendPublicationDate } from "./emails";
 
 export type OpResult = { ok: boolean; message: string; id?: number };
 
@@ -200,4 +200,15 @@ export async function addAdminImageOp(id: number, file: { name: string; bytes: U
   await putObject(key, file.bytes, type);
   await db()`INSERT INTO uploads (interview_id, object_key, filename, content_type, size_bytes) VALUES (${id}, ${key}, ${safeName}, ${type}, ${file.size})`;
   return { ok: true, message: "Image added." };
+}
+
+/** Emails the current edition to the admins again (no regeneration), with a fresh one-click approve link. */
+export async function sendReviewEmailOp(id: number): Promise<OpResult> {
+  const i = await getInterviewById(id);
+  if (!i || !i.draft) return { ok: false, message: "There is no draft yet." };
+  if (!["completed", "in_review"].includes(i.status)) return { ok: false, message: "Only drafts not yet sent to the founder can be emailed for review." };
+  const reviewToken = randomToken(18);
+  await db()`UPDATE interviews SET review_token = ${reviewToken} WHERE id = ${id}`;
+  const r = await sendDraftForReview({ ...i, review_token: reviewToken, draft: i.draft });
+  return r.ok ? { ok: true, message: "Review email sent to the admins." } : { ok: false, message: `Email failed: ${r.error}` };
 }

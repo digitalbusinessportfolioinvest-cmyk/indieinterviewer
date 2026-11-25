@@ -273,3 +273,25 @@ export async function writeIntro(input: {
     pullQuote: String(out.pullQuote ?? "").trim() || undefined,
   };
 }
+
+const SPANISH_HINTS = /\b(que|pero|porque|está|muy|también|del|los|las|para|una|hay|ahí|ahi|cuando|donde|todo|esto|eso|mucho|nosotros|tengo|puedo|habría|sería)\b|[ñ¿¡]/gi;
+
+/** True when a text still looks partly Spanish (two or more telltale words or characters). */
+export function looksSpanish(text: string) {
+  return (text.match(SPANISH_HINTS) ?? []).length >= 2;
+}
+
+const englishOnlySystem = `You receive interview answers that should be entirely in English but still contain parts in another language. Translate those parts into natural English and return each answer otherwise identical: same words, same order, same facts. Reply with JSON only: {"items": [{"id": <id>, "answer": "..."}]}`;
+
+/** Translates any leftover non-English fragments; everything else is returned unchanged. */
+export async function englishOnly(input: { items: { id: number; answer: string }[] }) {
+  const map = new Map<number, string>();
+  if (!input.items.length) return map;
+  const raw = await chat(
+    [{ role: "system", content: englishOnlySystem }, { role: "user", content: JSON.stringify(input.items, null, 1) }],
+    { effort: "low", maxTokens: 8000, timeoutMs: 120_000, interviewId: null, kind: "english" },
+  );
+  const out = parseJson<{ items?: { id: number; answer?: string }[] }>(raw);
+  for (const t of out.items ?? []) if (typeof t.id === "number" && t.answer?.trim()) map.set(t.id, t.answer.trim());
+  return map;
+}

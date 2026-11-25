@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { judgeAnswer, rewriteHeadings, editAnswers, polishEdition, writeIntro, type Intro } from "./llm";
+import { judgeAnswer, rewriteHeadings, editAnswers, polishEdition, writeIntro, englishOnly, looksSpanish, type Intro } from "./llm";
 import { sendCompletedToAdmins, sendDraftFailedToAdmins, sendDraftForReview } from "./emails";
 import { randomToken } from "./tokens";
 import { introFormat } from "./formats";
@@ -399,6 +399,22 @@ export async function generateDraft(interviewId: number) {
   } catch (err) {
     console.error("[draft] final review failed:", err instanceof Error ? err.message : err);
     failures.push(`Final review: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // 3b. Nothing may be left in another language: re-translate any answer that still looks Spanish, flag what remains.
+  try {
+    const left = items.filter((it) => looksSpanish(it.answer) || looksSpanish(it.heading));
+    if (left.length) {
+      const fixed = await englishOnly({ items: left.map((it) => ({ id: it.questionId, answer: it.answer })) });
+      for (const it of left) {
+        const f = fixed.get(it.questionId);
+        if (f) { it.answer = f; it.notes = [...(it.notes ?? []), "Leftover non-English text translated"]; }
+      }
+    }
+    for (const it of items) if (looksSpanish(it.answer)) gaps.push(`${it.heading}: may still contain text that isn't in English`);
+  } catch (err) {
+    console.error("[draft] language check failed:", err instanceof Error ? err.message : err);
+    failures.push(`Language check: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 4. Intro in the publication's format.
