@@ -96,6 +96,17 @@ export async function sendChangeRequestToAdmins(i: WithQn & { founder_name: stri
   ], { label: "Open the interview", url }, i.id, undefined, b);
 }
 
+export async function sendDraftFailedToAdmins(i: WithQn & { founder_name: string; company: string | null }, failures: string[]) {
+  const b = await brandForQuestionnaire(i.questionnaire_id);
+  const url = `${config.appUrl()}/admin/interviews/${i.id}`;
+  const credits = failures.some((f) => /\b402\b|credits/i.test(f));
+  return send("draft_failed", config.adminEmails(), `Draft not ready: ${i.founder_name}${i.company ? ` (${i.company})` : ""} · ${b.name}`, [
+    `The edition of the ${b.name} interview with ${i.founder_name} could not be prepared, so nothing has been sent for review.`,
+    credits ? "Reason: the OpenRouter account has run out of credits. Add credits, then regenerate the draft from the panel." : "Some steps failed. Regenerate the draft from the panel.",
+    ...failures.map((f) => `· ${f.slice(0, 300)}`),
+  ], { label: "Open the interview", url }, i.id, undefined, b);
+}
+
 export async function sendApprovedToAdmins(i: WithQn & { founder_name: string; company: string | null }) {
   const b = await brandForQuestionnaire(i.questionnaire_id);
   const url = `${config.appUrl()}/admin/interviews/${i.id}`;

@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { judgeAnswer, rewriteHeadings, editAnswers, polishEdition, writeIntro, type Intro } from "./llm";
-import { sendCompletedToAdmins, sendDraftForReview } from "./emails";
+import { sendCompletedToAdmins, sendDraftFailedToAdmins, sendDraftForReview } from "./emails";
 import { randomToken } from "./tokens";
 import { introFormat } from "./formats";
 import { checkLinks, findLinks, type LinkCheck } from "./links";
@@ -320,6 +320,7 @@ export async function generateDraft(interviewId: number) {
     answer: a.text,
   }));
   const dropped: { heading: string; reason: string }[] = [];
+  const failures: string[] = [];
   let pending: string[] = [];
   let gaps: string[] = [];
 
@@ -349,6 +350,7 @@ export async function generateDraft(interviewId: number) {
     items = kept;
   } catch (err) {
     console.error("[draft] answer editing failed:", err instanceof Error ? err.message : err);
+    failures.push(`Answer editing: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 2. Headings rewritten so they don't repeat from one issue to the next.
@@ -380,6 +382,7 @@ export async function generateDraft(interviewId: number) {
     rewritten = map.size > 0;
   } catch (err) {
     console.error("[draft] heading rewrite failed:", err instanceof Error ? err.message : err);
+    failures.push(`Headings: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 3. Final review pass over the whole edition.
@@ -395,6 +398,7 @@ export async function generateDraft(interviewId: number) {
     polishNotes = p.notes;
   } catch (err) {
     console.error("[draft] final review failed:", err instanceof Error ? err.message : err);
+    failures.push(`Final review: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 4. Intro in the publication's format.
@@ -411,6 +415,7 @@ export async function generateDraft(interviewId: number) {
     })) ?? undefined;
   } catch (err) {
     console.error("[draft] intro failed:", err instanceof Error ? err.message : err);
+    failures.push(`Intro: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 5. Links the founder mentions: checked so a broken one is flagged before publishing.
@@ -424,9 +429,15 @@ export async function generateDraft(interviewId: number) {
   const draft: Draft = { items, generatedAt: new Date().toISOString(), headingsRewritten: rewritten, intro, pending, gaps, dropped, polishNotes, links };
   if (i.draft?.imagePlacement) draft.imagePlacement = i.draft.imagePlacement; // keep manual photo placement
   await sql`
-    UPDATE interviews SET draft = ${sql.json(draft as never)}, draft_status = ${rewritten ? "ready" : "failed"},
+    UPDATE interviews SET draft = ${sql.json(draft as never)}, draft_status = ${failures.length ? "failed" : "ready"},
       status = CASE WHEN status = 'completed' THEN 'in_review' ELSE status END, updated_at = now()
     WHERE id = ${interviewId}`;
+
+  // A draft with failed steps is never emailed as if it were ready: the admins get a short alert instead.
+  if (failures.length) {
+    await sendDraftFailedToAdmins(i, failures).catch((err) => console.error("[draft] failure alert failed:", err));
+    return;
+  }
 
   // Email the draft to the admins with a one-click approve link (replaces the plain "finished" notice).
   try {

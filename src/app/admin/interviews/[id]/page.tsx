@@ -128,7 +128,7 @@ export default async function InterviewDetail({ params, searchParams }: { params
 
       {i.completed_at && i.draft_status === "failed" && (
         <div className="card">
-          <p className="error">The question headings could not be rewritten automatically, so the draft uses the original questions.</p>
+          <p className="error">The edition could not be prepared (the editing steps failed, for example because OpenRouter ran out of credits). What you see below is the raw text. Regenerate once the problem is fixed.</p>
           {editable && <ActionButton kind="regenerate" id={i.id} label="Try again" />}
         </div>
       )}
