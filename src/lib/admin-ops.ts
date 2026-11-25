@@ -212,3 +212,22 @@ export async function sendReviewEmailOp(id: number): Promise<OpResult> {
   const r = await sendDraftForReview({ ...i, review_token: reviewToken, draft: i.draft });
   return r.ok ? { ok: true, message: "Review email sent to the admins." } : { ok: false, message: `Email failed: ${r.error}` };
 }
+
+/** Adds an answer the founder gave outside the interview, right after another item of the draft. */
+export async function insertDraftItemOp(id: number, afterQuestionId: number, item: { heading: string; answer: string; questionId?: number }): Promise<OpResult> {
+  const i = await getInterviewById(id);
+  if (!i || !i.draft) return { ok: false, message: "There is no draft yet." };
+  if (["approved", "scheduled", "published"].includes(i.status)) return { ok: false, message: "This interview is already approved and can't be edited." };
+  const at = i.draft.items.findIndex((it) => it.questionId === afterQuestionId);
+  if (at < 0) return { ok: false, message: `Unknown questionId ${afterQuestionId}.` };
+  if (!item.heading.trim() || !item.answer.trim()) return { ok: false, message: "Heading and answer are required." };
+  const prev = i.draft.items[at];
+  const questionId = item.questionId ?? -Math.floor(Date.now() / 1000);
+  if (i.draft.items.some((it) => it.questionId === questionId)) return { ok: false, message: "That questionId is already in the draft." };
+  const items = [...i.draft.items];
+  items.splice(at + 1, 0, { questionId, layer: prev.layer, section: prev.section, original: item.heading.trim(), heading: item.heading.trim(), answer: item.answer.trim(), notes: ["Added by the editor from an answer given outside the interview"] });
+  const draft: Draft = { ...i.draft, items };
+  const sql = db();
+  await sql`UPDATE interviews SET draft = ${sql.json(draft as never)}, updated_at = now() WHERE id = ${id}`;
+  return { ok: true, message: `Added after question ${afterQuestionId} (questionId ${questionId}).` };
+}

@@ -8,7 +8,7 @@ import { draftToMarkdown } from "@/components/ArticleView";
 import { buildEdition } from "./edition";
 import {
   createInterviewOp, deleteInterviewOp, interviewLinks, regenerateDraftOp, resendInvitationOp,
-  saveReviewOp, savePhotoPlacementOp, saveIntroOp, sendReviewEmailOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
+  saveReviewOp, savePhotoPlacementOp, saveIntroOp, sendReviewEmailOp, insertDraftItemOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
 } from "./admin-ops";
 
 type Args = Record<string, unknown>;
@@ -200,6 +200,16 @@ export const tools: Tool[] = [
       for (const [k, v] of Object.entries((a.placement ?? {}) as Record<string, unknown>)) p[k] = v === "none" || v === "auto" ? v : num(v);
       return savePhotoPlacementOp(num(a.id), p);
     },
+  },
+  {
+    name: "add_draft_item",
+    description: "Insert a new question and answer into the draft right after an existing item (by questionId), e.g. an answer the founder sent by email. Only before approval.",
+    inputSchema: {
+      type: "object",
+      properties: { id, after_question_id: { type: "integer" }, heading: { type: "string" }, answer: { type: "string" } },
+      required: ["id", "after_question_id", "heading", "answer"],
+    },
+    run: async (a) => insertDraftItemOp(num(a.id), num(a.after_question_id), { heading: String(a.heading ?? ""), answer: String(a.answer ?? "") }),
   },
   {
     name: "send_review_email",
