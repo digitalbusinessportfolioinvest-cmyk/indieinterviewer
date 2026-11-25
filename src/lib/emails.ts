@@ -2,6 +2,7 @@ import { escapeHtml, layout, sendEmail, textWithLink } from "./email";
 import type { Draft } from "./interview";
 import { introLines, buildEdition, type Edition } from "./edition";
 import { linkParts } from "./links";
+import { estimatePublication, formatDay } from "./schedule";
 import { config } from "./config";
 import { brandForQuestionnaire, fromHeader, type Brand } from "./brand";
 
@@ -70,6 +71,8 @@ export async function sendApprovalRequest(i: WithQn & { founder_name: string; fo
     "Your interview is ready: this is the edition we will publish, with the cover and your photos. You can read it below or on the page linked from the button and, if everything reflects your answers, approve it there.",
     "If anything needs changing, just reply to this email and tell us what.",
   ];
+  const est = await estimatePublication(i.id).catch(() => null);
+  if (est) paragraphs.splice(2, 0, `Estimated publication: between ${formatDay(est.from)} and ${formatDay(est.to)}. We'll confirm the exact date once you approve.`);
   const button = { label: "Read and approve", url };
   if (!i.draft) return send("approval_request", i.founder_email, `Your ${b.name} interview is ready for your approval`, paragraphs, button, i.id, undefined, b);
   const edition = await buildEdition(i.id, i.draft, i.analysis);
@@ -204,6 +207,8 @@ export async function sendDraftForReview(i: WithQn & {
       ? `The founder skipped ${i.deep_skipped_count} Deep Dive question(s), so it needs your analysis before it can go to the founder. Write it in the panel and send it from there.`
       : "If it's good to go, approve it with the button and it will be sent to the founder for their approval. To change anything first, edit it in the panel.",
   ];
+  const est = await estimatePublication(i.id).catch(() => null);
+  if (est) paragraphs.push(`Estimated publication: ${formatDay(est.from)} (next free slot), with a margin up to ${formatDay(est.to)}.`);
   const edition = await buildEdition(i.id, i.draft, i.analysis);
   const button = needsAnalysis
     ? { label: "Open in the panel", url: panel }

@@ -7,6 +7,8 @@ export const newsletters = [
     logo: "/brand/horizontal_color.svg",
     senderName: "Indie Hustle",
     replyTo: "the@indiehustle.co",
+    publishWeekday: 2,
+    launchDate: null,
     about: "a newsletter that publishes written interviews with founders of established, profitable online businesses",
   },
   {
@@ -17,6 +19,8 @@ export const newsletters = [
     logo: "/brand/founders-struggles-logo-color.svg",
     senderName: "Founders Struggles",
     replyTo: "the@indiehustle.co",
+    publishWeekday: 4,
+    launchDate: "2026-12-03",
     about: "a newsletter that publishes written interviews with founders in the middle of the journey: projects still being built, not yet consolidated, where the interest is in real difficulties, open decisions and honest numbers",
   },
 ];

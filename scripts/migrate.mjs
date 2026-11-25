@@ -18,10 +18,11 @@ try {
 
   for (const n of newsletters) {
     await sql`
-      INSERT INTO newsletters (slug, name, publisher, website, logo, sender_name, reply_to, about)
-      VALUES (${n.slug}, ${n.name}, ${n.publisher}, ${n.website}, ${n.logo ?? null}, ${n.senderName ?? null}, ${n.replyTo ?? null}, ${n.about ?? null})
+      INSERT INTO newsletters (slug, name, publisher, website, logo, sender_name, reply_to, about, publish_weekday, launch_date)
+      VALUES (${n.slug}, ${n.name}, ${n.publisher}, ${n.website}, ${n.logo ?? null}, ${n.senderName ?? null}, ${n.replyTo ?? null}, ${n.about ?? null}, ${n.publishWeekday ?? null}, ${n.launchDate ?? null})
       ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, publisher = EXCLUDED.publisher, website = EXCLUDED.website,
-        logo = EXCLUDED.logo, sender_name = EXCLUDED.sender_name, reply_to = EXCLUDED.reply_to, about = EXCLUDED.about`;
+        logo = EXCLUDED.logo, sender_name = EXCLUDED.sender_name, reply_to = EXCLUDED.reply_to, about = EXCLUDED.about,
+        publish_weekday = EXCLUDED.publish_weekday, launch_date = EXCLUDED.launch_date`;
   }
 
   for (const q of questionnaires) {

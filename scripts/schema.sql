@@ -165,6 +165,9 @@ ALTER TABLE interviews ADD COLUMN IF NOT EXISTS screenshot_error TEXT;
 ALTER TABLE interviews ADD COLUMN IF NOT EXISTS review_token TEXT;
 -- Closing steps after the last question: photo -> review_ask -> review.
 ALTER TABLE interviews ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ;
+-- Publishing calendar per newsletter: weekday (0 = Sunday) and first issue date.
+ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS publish_weekday INTEGER;
+ALTER TABLE newsletters ADD COLUMN IF NOT EXISTS launch_date DATE;
 ALTER TABLE interviews ADD COLUMN IF NOT EXISTS closing_step TEXT NOT NULL DEFAULT 'photo';
 
 -- Changes the founder asks for from the approval page, one per answer.
