@@ -231,3 +231,16 @@ export async function insertDraftItemOp(id: number, afterQuestionId: number, ite
   await sql`UPDATE interviews SET draft = ${sql.json(draft as never)}, updated_at = now() WHERE id = ${id}`;
   return { ok: true, message: `Added after question ${afterQuestionId} (questionId ${questionId}).` };
 }
+
+/** The founder replied "OK" to the approval email: record the approval with the same terms as the approval page. */
+export async function approveByEmailOp(id: number): Promise<OpResult> {
+  const i = await getInterviewById(id);
+  if (!i) return { ok: false, message: "Not found." };
+  if (i.status !== "awaiting_approval") return { ok: false, message: "This interview is not awaiting approval." };
+  const [qn] = await db()`SELECT rights_clause FROM questionnaires WHERE id = ${i.questionnaire_id}`;
+  await db()`
+    UPDATE interviews SET status = 'approved', approved_at = now(), approval_clause = ${qn.rights_clause},
+      approval_email = ${`${i.founder_email} (replied OK by email)`}, updated_at = now()
+    WHERE id = ${id} AND status = 'awaiting_approval'`;
+  return { ok: true, message: "Marked as approved (the founder replied OK by email)." };
+}

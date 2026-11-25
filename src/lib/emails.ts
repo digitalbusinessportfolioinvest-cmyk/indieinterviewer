@@ -2,6 +2,7 @@ import { escapeHtml, layout, sendEmail, textWithLink } from "./email";
 import type { Draft } from "./interview";
 import { introLines, buildEdition, type Edition } from "./edition";
 import { linkParts } from "./links";
+import { db } from "./db";
 import { estimatePublication, formatDay } from "./schedule";
 import { config } from "./config";
 import { brandForQuestionnaire, fromHeader, type Brand } from "./brand";
@@ -68,7 +69,8 @@ export async function sendApprovalRequest(i: WithQn & { founder_name: string; fo
   const url = `${config.appUrl()}/approve/${i.approval_token}`;
   const paragraphs = [
     `Hi ${i.founder_name},`,
-    "Your interview is ready: this is the edition we will publish, with the cover and your photos. You can read it below or on the page linked from the button and, if everything reflects your answers, approve it there.",
+    "Your interview is ready: this is the edition we will publish, with the cover and your photos. You can read it below or on the page linked from the button.",
+    "If everything reflects your answers, approve it with the button, or simply reply OK to this email. Either way, by approving you accept the terms at the end of this email.",
     "If anything needs changing, just reply to this email and tell us what.",
   ];
   const est = await estimatePublication(i.id).catch(() => null);
@@ -78,12 +80,14 @@ export async function sendApprovalRequest(i: WithQn & { founder_name: string; fo
   const button = { label: "Read and approve", url };
   if (!i.draft) return send("approval_request", i.founder_email, `Your ${b.name} interview is ready for your approval`, paragraphs, button, i.id, undefined, b);
   const edition = await buildEdition(i.id, i.draft, i.analysis);
+  const [{ rights_clause: clause }] = await db()`SELECT rights_clause FROM questionnaires WHERE id = ${i.questionnaire_id}`;
+  const termsHtml = `<div style="border-top:1px solid #ddd;margin-top:32px;padding-top:12px"><p style="font-weight:700;margin:0 0 8px">Terms you accept by approving</p><p style="font-size:14px;line-height:1.5;color:#333;margin:0">${escapeHtml(clause)}</p></div>`;
   return sendEmail({
     kind: "approval_request",
     to: i.founder_email,
     subject: `Your ${b.name} interview is ready for your approval`,
-    text: `${textWithLink(paragraphs, button)}\n\n---\n\n${editionText(edition, false)}`,
-    html: layout(paragraphs, button, b.name, editionHtml(edition, false)),
+    text: `${textWithLink(paragraphs, button)}\n\n---\n\n${editionText(edition, false)}\n\n---\n\nTERMS YOU ACCEPT BY APPROVING\n\n${clause}`,
+    html: layout(paragraphs, button, b.name, editionHtml(edition, false) + termsHtml),
     interviewId: i.id,
     from: fromHeader(b),
     replyTo: b.replyTo,

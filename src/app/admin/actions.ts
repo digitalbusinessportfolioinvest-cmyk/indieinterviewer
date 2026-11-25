@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import {
-  savePhotoPlacementOp, saveIntroOp, resolveChangeRequestOp, addAdminImageOp,
+  savePhotoPlacementOp, saveIntroOp, resolveChangeRequestOp, addAdminImageOp, approveByEmailOp,
   createInterviewOp, deleteInterviewOp, regenerateDraftOp, resendInvitationOp, saveReviewOp,
   sendForApprovalOp, setPublicationDateOp, setPublishedOp,
 } from "@/lib/admin-ops";
@@ -110,6 +110,13 @@ export async function addAdminImage(id: number, form: FormData): Promise<ActionR
   const file = form.get("file");
   if (!(file instanceof File)) return { ok: false, message: "No file received." };
   const r = await addAdminImageOp(id, { name: file.name, size: file.size, bytes: new Uint8Array(await file.arrayBuffer()) });
+  revalidatePath(`/admin/interviews/${id}`);
+  return r;
+}
+
+export async function approveByEmail(id: number): Promise<ActionResult> {
+  await requireAdmin();
+  const r = await approveByEmailOp(id);
   revalidatePath(`/admin/interviews/${id}`);
   return r;
 }

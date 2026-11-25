@@ -200,6 +200,8 @@ export default async function InterviewDetail({ params, searchParams }: { params
           <h2>Awaiting approval</h2>
           <p className="small muted">Approval page sent to the founder:</p>
           <input type="text" readOnly value={approvalUrl} />
+          <p className="small muted" style={{ marginTop: 12 }}>If the founder replied OK to the email instead, record the approval here (same terms as the approval page):</p>
+          <ActionButton kind="approve_email" id={i.id} label="Founder replied OK: mark as approved" />
         </div>
       )}
 

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteInterview, retakeScreenshot, regenerateDraft, resendInvitation, setPublicationDate, setPublished, type ActionResult } from "../../actions";
+import { approveByEmail, deleteInterview, retakeScreenshot, regenerateDraft, resendInvitation, setPublicationDate, setPublished, type ActionResult } from "../../actions";
 
-export function ActionButton({ kind, id, label }: { kind: "invite" | "regenerate"; id: number; label: string }) {
+export function ActionButton({ kind, id, label }: { kind: "invite" | "regenerate" | "approve_email"; id: number; label: string }) {
   const [pending, start] = useTransition();
   const [result, setResult] = useState<ActionResult | null>(null);
   return (
@@ -11,7 +11,7 @@ export function ActionButton({ kind, id, label }: { kind: "invite" | "regenerate
       <button
         className="secondary"
         disabled={pending}
-        onClick={() => start(async () => setResult(await (kind === "invite" ? resendInvitation(id) : regenerateDraft(id))))}
+        onClick={() => start(async () => setResult(await (kind === "invite" ? resendInvitation(id) : kind === "approve_email" ? approveByEmail(id) : regenerateDraft(id))))}
       >
         {pending ? "Working…" : label}
       </button>

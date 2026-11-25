@@ -8,7 +8,7 @@ import { draftToMarkdown } from "@/components/ArticleView";
 import { buildEdition } from "./edition";
 import {
   createInterviewOp, deleteInterviewOp, interviewLinks, regenerateDraftOp, resendInvitationOp,
-  saveReviewOp, savePhotoPlacementOp, saveIntroOp, sendReviewEmailOp, insertDraftItemOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
+  saveReviewOp, savePhotoPlacementOp, saveIntroOp, sendReviewEmailOp, insertDraftItemOp, approveByEmailOp, sendForApprovalOp, setPublicationDateOp, setPublishedOp,
 } from "./admin-ops";
 
 type Args = Record<string, unknown>;
@@ -210,6 +210,12 @@ export const tools: Tool[] = [
       required: ["id", "after_question_id", "heading", "answer"],
     },
     run: async (a) => insertDraftItemOp(num(a.id), num(a.after_question_id), { heading: String(a.heading ?? ""), answer: String(a.answer ?? "") }),
+  },
+  {
+    name: "approve_by_email",
+    description: "Record the founder's approval when they replied OK to the approval email (same terms as the approval page).",
+    inputSchema: { type: "object", properties: { id }, required: ["id"] },
+    run: async (a) => approveByEmailOp(num(a.id)),
   },
   {
     name: "send_review_email",
